@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import PixelField, { type PixelFieldConfig } from './components/PixelField';
+import { PixelField, type PixelFieldConfig } from '@tooldroid/pixel-field';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 /**
  * Design tokens for the noise field behind this page. Every key is optional;
- * anything omitted falls back to the defaults in `src/lib/pixelFieldConfig.ts`.
- * Declared at module scope so its identity is stable and the field can skip
- * re-resolving it on every render.
+ * anything omitted falls back to the package defaults. Declared at module
+ * scope so its identity is stable and the field can skip re-resolving it on
+ * every render.
  */
 const PIXEL_FIELD_CONFIG: PixelFieldConfig = {
   // Grid: distance between cell origins, and the square size drawn in each.
@@ -95,7 +95,7 @@ function App() {
             className={BUTTON_SECONDARY}
             onClick={() => setSeed((value) => value + 1)}
           >
-            Change pattern
+            Change pattern (seed: {seed})
           </button>
         </div>
       </section>
