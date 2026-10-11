@@ -61,6 +61,8 @@ export function usePixelField(
   const cellsRef = useRef<FieldCells | null>(null);
   const buffersRef = useRef<FieldRenderBuffers | null>(null);
   const seedRef = useRef(seed);
+  // Mirror of `inView` for the paint path, which must not re-subscribe on it.
+  const inViewRef = useRef(true);
   // Deferred sync, if one is waiting out a burst of resize notifications.
   const syncPendingRef = useRef<{ timer: number; since: number } | null>(null);
   const syncLastRef = useRef(0);
@@ -106,6 +108,10 @@ export function usePixelField(
   }, []);
 
   const paint = useCallback(() => {
+    // Nothing to paint for a field nobody can see: a resize (or the trailing
+    // sync of a resize burst) can leave the bitmap stale, and the loop's first
+    // frame back in view repaints it from the same refs.
+    if (!inViewRef.current) return;
     const ctx = getCtx();
     const cells = cellsRef.current;
     if (!ctx || !cells) return;
@@ -286,9 +292,11 @@ export function usePixelField(
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver((entries) =>
-      setInView(entries[entries.length - 1].isIntersecting),
-    );
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries[entries.length - 1].isIntersecting;
+      inViewRef.current = visible;
+      setInView(visible);
+    });
     observer.observe(canvas);
     return () => observer.disconnect();
   }, []);

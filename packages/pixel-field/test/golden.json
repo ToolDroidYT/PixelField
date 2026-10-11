@@ -1,0 +1,66 @@
+{
+  "1080p t=0": {
+    "count": 8733,
+    "body": "da43fe51",
+    "glint": "f34705e2",
+    "x": "224059c0",
+    "y": "8ceacf60",
+    "size": "1cf25457"
+  },
+  "1080p t=7.3": {
+    "count": 8733,
+    "body": "3528e359",
+    "glint": "0a18aa1c",
+    "x": "224059c0",
+    "y": "8ceacf60",
+    "size": "21e8d064"
+  },
+  "720p t=123": {
+    "count": 3984,
+    "body": "66005034",
+    "glint": "10c903c3",
+    "x": "49181055",
+    "y": "0d3455d2",
+    "size": "0963f93f"
+  },
+  "mobile t=42": {
+    "count": 1568,
+    "body": "0ace300a",
+    "glint": "8dafd56c",
+    "x": "094381e5",
+    "y": "c23e7c25",
+    "size": "5fbf2316"
+  },
+  "small t=0": {
+    "count": 1484,
+    "body": "f58d8700",
+    "glint": "34b64f7e",
+    "x": "73709509",
+    "y": "63b627d2",
+    "size": "c2f39007"
+  },
+  "overlap": {
+    "count": 3984,
+    "body": "49cf7c49",
+    "glint": "9bee8b2f",
+    "x": "49181055",
+    "y": "0d3455d2",
+    "size": "2b9eb593"
+  },
+  "no warp, 3 octaves": {
+    "count": 3984,
+    "body": "1681b2d3",
+    "glint": "4ab5a315",
+    "x": "49181055",
+    "y": "0d3455d2",
+    "size": "76effa7b"
+  },
+  "4K capped": {
+    "count": 19822,
+    "body": "47b33624",
+    "glint": "166bda66",
+    "x": "ccab070f",
+    "y": "f8516101",
+    "size": "2fcad7e4"
+  }
+}
