@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PixelField, type PixelFieldConfig } from '@tooldroid/pixel-field';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Pause, Play, Plus } from 'lucide-react';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -29,9 +29,17 @@ const PIXEL_FIELD_CONFIG: PixelFieldConfig = {
 };
 
 const BUTTON =
-  'inline-flex min-h-[46px] cursor-pointer items-center justify-center rounded-[10px] border px-[17px] text-sm font-[550]';
+  'inline-flex min-h-[46px] cursor-pointer items-center justify-center gap-2 rounded-[10px] border px-[17px] text-sm font-[550]';
 const BUTTON_SECONDARY = `${BUTTON} border-white/[0.17] bg-white/[0.055] text-[#eee9e4]`;
 const BUTTON_PRIMARY = `${BUTTON} border-[#e8e2dc] bg-[#e8e2dc] text-[#181513]`;
+
+// Icon-only controls: 17px glyphs (matching the label's optical weight) inside
+// generous 36px hit areas, so the stepper stays tappable on touch screens.
+const ICON = 'size-[17px] shrink-0';
+const ICON_BUTTON =
+  'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-[7px] transition-colors hover:bg-white/[0.1] active:bg-white/[0.16]';
+const SEED_INPUT =
+  'w-11 border-0 bg-transparent p-0 text-center text-sm text-[#eee9e4] tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
 
 const VIGNETTE =
   'pointer-events-none absolute inset-0 z-[-1] bg-[linear-gradient(0deg,rgba(10,9,8,0.18),rgba(10,9,8,0.04)_48%,rgba(10,9,8,0.12))] max-[560px]:bg-[linear-gradient(180deg,rgba(10,9,8,0.1),rgba(10,9,8,0.16)_45%,rgba(10,9,8,0.08))]';
@@ -46,7 +54,7 @@ function App() {
   const [running, setRunning] = useState(
     () => !window.matchMedia(REDUCED_MOTION_QUERY).matches,
   );
-  const [seed, setSeed] = useState(1);
+  const [seed, setSeed] = useState(18);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
@@ -89,30 +97,42 @@ function App() {
             className={BUTTON_PRIMARY}
             onClick={() => setRunning((value) => !value)}
           >
+            {running ? (
+              <Pause className={ICON} aria-hidden='true' />
+            ) : (
+              <Play className={ICON} aria-hidden='true' />
+            )}
             {running ? 'Pause animation' : 'Resume animation'}
           </button>
-          <div className={BUTTON_SECONDARY}>
-            Seed
-            <div className='ml-2 flex items-center gap-1'>
-              <button>
-                <Minus
-                  className='h-4 w-4'
-                  onClick={() => setSeed((value) => value - 1)}
-                />
-              </button>
-              <input
-                type='number'
-                value={seed}
-                onChange={(e) => setSeed(Number(e.target.value))}
-                className='w-8 text-center'
-              />
-              <button>
-                <Plus
-                  className='h-4 w-4'
-                  onClick={() => setSeed((value) => value + 1)}
-                />
-              </button>
-            </div>
+          <div
+            className={`${BUTTON_SECONDARY} gap-0.5 px-1.5`}
+            role='group'
+            aria-label='Pattern seed'
+          >
+            <span className='px-2 text-[#a19b96]'>Seed</span>
+            <button
+              type='button'
+              className={ICON_BUTTON}
+              aria-label='Previous seed'
+              onClick={() => setSeed((value) => value - 1)}
+            >
+              <Minus className={ICON} aria-hidden='true' />
+            </button>
+            <input
+              type='number'
+              value={seed}
+              aria-label='Seed value'
+              onChange={(e) => setSeed(Number(e.target.value))}
+              className={SEED_INPUT}
+            />
+            <button
+              type='button'
+              className={ICON_BUTTON}
+              aria-label='Next seed'
+              onClick={() => setSeed((value) => value + 1)}
+            >
+              <Plus className={ICON} aria-hidden='true' />
+            </button>
           </div>
         </div>
       </section>
