@@ -42,6 +42,12 @@ export type PixelFieldConfig = {
   /** Cap (ms) on the per-frame time delta, smoothing out tab-switch jumps. */
   maxFrameDelta?: number;
   /**
+   * Upper bound on painted frames per second; `0` paints on every RAF tick.
+   * The clock is unaffected, so the field drifts at the same speed — a lower
+   * cap just skips the paints in between.
+   */
+  maxFps?: number;
+  /**
    * Pause automatically while the OS reports a reduced-motion preference, and
    * follow it live. Defaults to `true`; set `false` to animate regardless.
    */
@@ -158,6 +164,7 @@ const SPANS: Partial<Record<keyof ResolvedPixelFieldConfig, Span>> = {
   flowSpeed: { min: 0 },
   warpSpeed: { min: 0 },
   maxFrameDelta: { min: 0 },
+  maxFps: { min: 0, max: 240, integer: true },
 
   noiseScale: { min: 1e-6 },
   autoScaleMin: { min: 1 },
@@ -214,6 +221,9 @@ export const DEFAULT_PIXEL_FIELD_CONFIG: ResolvedPixelFieldConfig =
     flowSpeed: 1,
     warpSpeed: 1,
     maxFrameDelta: 40,
+    // The field drifts slowly, so 30 fps is visually indistinguishable from a
+    // full-rate repaint and halves the paint work. `maxFps: 0` uncaps it.
+    maxFps: 30,
     respectReducedMotion: true,
 
     noiseScale: 'auto',

@@ -46,6 +46,25 @@ test('resolution ignores unknown keys and lets undefined fall back', () => {
   assert.equal(resolved.spacing, 40);
   assert.deepEqual([...resolved.colorBase], [...DEFAULTS.colorBase]);
   assert.equal('spacingTypo' in resolved, false);
+
+  // The fps cap normalizes like the other scalars: finite values clamp into
+  // the documented span, `0` uncaps, and junk falls back to the default.
+  assert.equal(resolvePixelFieldConfig().maxFps, 30);
+  assert.equal(resolvePixelFieldConfig({ maxFps: 0 }).maxFps, 0);
+  assert.equal(resolvePixelFieldConfig({ maxFps: -5 }).maxFps, 0);
+  assert.equal(resolvePixelFieldConfig({ maxFps: 1e9 }).maxFps, 240);
+  assert.equal(resolvePixelFieldConfig({ maxFps: 59.4 }).maxFps, 59);
+  assert.equal(resolvePixelFieldConfig({ maxFps: 59.5 }).maxFps, 60);
+  assert.equal(resolvePixelFieldConfig({ maxFps: Number.NaN }).maxFps, 30);
+
+  // And it takes part in value equality like every other key.
+  assert.equal(
+    pixelFieldConfigEquals(
+      resolvePixelFieldConfig({ maxFps: 30 }),
+      resolvePixelFieldConfig({ maxFps: 60 }),
+    ),
+    false,
+  );
 });
 
 test('config equality compares tuples by value, not identity', () => {

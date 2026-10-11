@@ -56,6 +56,8 @@ export function usePixelField(
   const heightRef = useRef(0);
   const timeRef = useRef(0);
   const lastTimeRef = useRef(0);
+  // When the canvas was last painted, for the `maxFps` throttle.
+  const lastPaintRef = useRef(0);
   const rafRef = useRef(0);
   const noiseScaleRef = useRef(50);
   const cellsRef = useRef<FieldCells | null>(null);
@@ -340,7 +342,16 @@ export function usePixelField(
       // the motion resumes from where it left off.
       if (next !== timeRef.current && !settlingRef.current) {
         timeRef.current = next;
-        paint();
+        // The clock advances on every tick so the field drifts in real time;
+        // `maxFps` only decides how often that state reaches the canvas. The
+        // half-millisecond grace absorbs rAF timestamp granularity, which
+        // would otherwise make a 30 fps target on a 60 Hz display alternate
+        // between two-frame and three-frame gaps.
+        const interval = cfg.maxFps > 0 ? 1000 / cfg.maxFps : 0;
+        if (now - lastPaintRef.current >= interval - 0.5) {
+          lastPaintRef.current = now;
+          paint();
+        }
       }
       rafRef.current = requestAnimationFrame(frame);
     };
