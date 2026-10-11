@@ -29,6 +29,7 @@ export default {
     '^react$',
     '^react-dom$',
     '^@sonrise/',
+    '^@tooldroid/',
     '^@/',
     '<THIRD_PARTY_MODULES>',
     '^\\.\\./',

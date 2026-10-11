@@ -1,0 +1,6 @@
+packages:
+  - 'packages/*'
+
+# esbuild (via tsup) needs its postinstall step to wire up the platform binary.
+allowBuilds:
+  esbuild: true
