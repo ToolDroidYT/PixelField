@@ -1,7 +1,31 @@
 import { useEffect, useState } from 'react';
-import PixelField from './components/PixelField';
+import PixelField, { type PixelFieldConfig } from './components/PixelField';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+/**
+ * Design tokens for the noise field behind this page. Every key is optional;
+ * anything omitted falls back to the defaults in `src/lib/pixelFieldConfig.ts`.
+ * Declared at module scope so its identity is stable and the field can skip
+ * re-resolving it on every render.
+ */
+const PIXEL_FIELD_CONFIG: PixelFieldConfig = {
+  // Grid: distance between cell origins, and the square size drawn in each.
+  spacing: 16,
+  pixelSize: 10,
+
+  // Motion: 1 = the hand-tuned baseline rate; 0 freezes the drift entirely.
+  speed: 1,
+
+  // Shape: field values where cells fade in, and the hard alpha ceiling.
+  visibilityRange: [0.43, 0.56],
+  alphaCap: 0.3,
+
+  // Color: warm charcoal → off-white ramp, matching the page's ink/paper tones.
+  colorBase: [54, 51, 48],
+  colorRange: [132, 124, 116],
+  glintColor: [235, 225, 213],
+};
 
 const BUTTON =
   'inline-flex min-h-[46px] cursor-pointer items-center justify-center rounded-[10px] border px-[17px] text-sm font-[550]';
@@ -32,7 +56,7 @@ function App() {
 
   return (
     <main className='relative isolate flex min-h-svh flex-col items-start justify-center overflow-hidden p-[clamp(28px,7vw,88px)] max-[560px]:justify-start max-[560px]:pt-[34svh]'>
-      <PixelField running={running} seed={seed} />
+      <PixelField running={running} seed={seed} config={PIXEL_FIELD_CONFIG} />
       {/* Vignette keeps the center text readable while pixels remain visible at the edges. */}
       <div aria-hidden='true' className={VIGNETTE} />
 
