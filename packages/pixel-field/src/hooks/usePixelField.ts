@@ -22,6 +22,11 @@ import {
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
+/** Quiet period a burst of resize notifications must reach before syncing. */
+const SYNC_SETTLE_MS = 300;
+/** Hard cap on how long a gesture can keep deferring the sync. */
+const SYNC_MAX_WAIT_MS = 750;
+
 /** Base clock step per millisecond; `speed` scales it (`1` = the original rate). */
 const TIME_STEP = 0.00136;
 
@@ -56,6 +61,12 @@ export function usePixelField(
   const cellsRef = useRef<FieldCells | null>(null);
   const buffersRef = useRef<FieldRenderBuffers | null>(null);
   const seedRef = useRef(seed);
+  // Deferred sync, if one is waiting out a burst of resize notifications.
+  const syncPendingRef = useRef<{ timer: number; since: number } | null>(null);
+  const syncLastRef = useRef(0);
+  // True while riding out a resize burst: the loop holds its frames instead of
+  // repainting a canvas the browser is already stretching for free.
+  const settlingRef = useRef(false);
   // Reused per frame so painting allocates nothing.
   const viewRef = useRef<FieldView>({
     width: 0,
@@ -174,12 +185,64 @@ export function usePixelField(
               Math.min(cfg.autoScaleMax, w * cfg.autoScaleFactor),
             )
           : cfg.noiseScale;
-      noiseScaleRef.current = baseNoiseScale;
+      // If `maxCells` coarsened the grid, coarsen the field with it: the
+      // pattern then stays the same size on screen rather than swelling.
+      noiseScaleRef.current = baseNoiseScale * (cellsRef.current?.scale ?? 1);
 
       paint();
     },
     [buildCells, getCtx, paint],
   );
+
+  /** Runs a deferred sync, cancelling whichever timer was waiting to. */
+  const runSync = useCallback(() => {
+    const pending = syncPendingRef.current;
+    if (pending) clearTimeout(pending.timer);
+    syncPendingRef.current = null;
+    settlingRef.current = false;
+    syncLastRef.current = performance.now();
+    syncSize();
+  }, [syncSize]);
+
+  /**
+   * Resize notifications arrive in bursts: browser zoom changes the element
+   * size and `devicePixelRatio` at once, so the ResizeObserver and a
+   * media-query change fire together, then again on every step of a Ctrl+scroll
+   * or window drag. Each sync measures the layout, may rebuild the whole grid,
+   * and reallocates the backing store — one per notification freezes the page
+   * for as long as the gesture lasts, and the canvas bitmap is only stretched
+   * by CSS in the meantime anyway.
+   *
+   * So a lone notification runs immediately (a single resize stays crisp and
+   * instant), while a burst is debounced: every new notification pushes the
+   * trailing sync out and cancels the older pending one, so the work is never
+   * queued up behind itself — and the loop holds its frames for the duration,
+   * which is what actually pays off, since the paint dwarfs the measurement.
+   * `SYNC_MAX_WAIT_MS` bounds how long a gesture that never settles can defer
+   * it, so a long window drag still tracks rather than freezing.
+   */
+  const scheduleSync = useCallback(() => {
+    const now = performance.now();
+    const pending = syncPendingRef.current;
+    // "Burst" is a notification arriving either while a trailing sync is still
+    // armed or right on the heels of one that just ran — the pair of
+    // notifications a single zoom step produces is exactly that shape.
+    if (!pending && now - syncLastRef.current >= SYNC_SETTLE_MS) {
+      runSync();
+      return;
+    }
+    const since = pending?.since ?? syncLastRef.current;
+    if (now - since >= SYNC_MAX_WAIT_MS) {
+      runSync();
+      return;
+    }
+    if (pending) clearTimeout(pending.timer);
+    settlingRef.current = true;
+    syncPendingRef.current = {
+      since,
+      timer: window.setTimeout(runSync, SYNC_SETTLE_MS),
+    };
+  }, [runSync]);
 
   // Size tracking: ResizeObserver also catches container-only layout changes
   // that a window resize listener would miss. Measuring only when notified
@@ -188,10 +251,16 @@ export function usePixelField(
     const canvas = canvasRef.current;
     if (!canvas) return;
     syncSize(undefined, undefined, true);
-    const observer = new ResizeObserver(() => syncSize());
+    const observer = new ResizeObserver(() => scheduleSync());
     observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [syncSize]);
+    return () => {
+      observer.disconnect();
+      const pending = syncPendingRef.current;
+      if (pending) clearTimeout(pending.timer);
+      syncPendingRef.current = null;
+      settlingRef.current = false;
+    };
+  }, [scheduleSync, syncSize]);
 
   // Moving between displays (or zooming) changes `devicePixelRatio` without
   // changing the element's size, which the ResizeObserver never sees.
@@ -201,13 +270,15 @@ export function usePixelField(
       window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
     let media = watch();
     const onChange = () => {
-      syncSize();
+      // The measurement is deferred; re-subscribing is not, so a second zoom
+      // step in the same frame is still caught.
+      scheduleSync();
       media = watch();
       media.addEventListener('change', onChange);
     };
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);
-  }, [syncSize]);
+  }, [scheduleSync]);
 
   // Off-screen fields keep running for free otherwise; scrolling one back into
   // view resumes the loop, which repaints on its first frame.
@@ -254,8 +325,12 @@ export function usePixelField(
       const dt = last ? Math.min(now - last, cfg.maxFrameDelta) : 16;
       lastTimeRef.current = now;
       const next = timeRef.current + dt * TIME_STEP * cfg.speed;
-      // A frozen clock (`speed: 0`) would repaint an identical frame.
-      if (next !== timeRef.current) {
+      // Hold the frame when the clock is frozen (`speed: 0` — it would repaint
+      // an identical frame) or while a resize burst is in flight: the browser
+      // is already stretching the last bitmap for free, and the trailing sync
+      // repaints once it settles. Time pauses rather than skipping ahead, so
+      // the motion resumes from where it left off.
+      if (next !== timeRef.current && !settlingRef.current) {
         timeRef.current = next;
         paint();
       }

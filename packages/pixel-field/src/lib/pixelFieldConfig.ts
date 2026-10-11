@@ -25,6 +25,12 @@ export type PixelFieldConfig = {
   pixelSize?: number;
   /** Relative per-cell size jitter in `[0, 1]`; `0` makes every square identical. */
   sizeJitter?: number;
+  /**
+   * Upper bound on generated cells. Past it, the pitch, square size, and noise
+   * scale are coarsened together, so the pattern keeps its on-screen size
+   * while per-frame cost stops tracking viewport area. `0` disables the cap.
+   */
+  maxCells?: number;
 
   // --- Motion -----------------------------------------------------------
   /** Playback rate of the whole animation; `1` = default, `0` freezes the clock. */
@@ -146,6 +152,7 @@ const SPANS: Partial<Record<keyof ResolvedPixelFieldConfig, Span>> = {
   spacing: { min: 1 },
   pixelSize: { min: 0 },
   sizeJitter: { min: 0, max: 1 },
+  maxCells: { min: 0, integer: true },
 
   speed: { min: 0 },
   flowSpeed: { min: 0 },
@@ -199,6 +206,9 @@ export const DEFAULT_PIXEL_FIELD_CONFIG: ResolvedPixelFieldConfig =
     spacing: 16,
     pixelSize: 10,
     sizeJitter: 0.12,
+    // Comfortably above a 3440x1440 ultrawide, and low enough that a zoomed-out
+    // browser tab stays interactive.
+    maxCells: 20_000,
 
     speed: 1,
     flowSpeed: 1,
@@ -358,6 +368,7 @@ export function pixelFieldLayoutKey(config: ResolvedPixelFieldConfig): string {
     config.spacing,
     config.pixelSize,
     config.sizeJitter,
+    config.maxCells,
     config.maxDpr,
     config.noiseScale,
     config.autoScaleMin,

@@ -83,7 +83,7 @@ cells. Configs are compared by value, so an inline object literal is fine.
 Values are normalized on resolve: non-finite numbers fall back to the default,
 `octaves` is clamped to `[1, 8]` (an unbounded value is a hang — it is one fbm
 loop per octave per cell), blend weights and probabilities are clamped to
-`[0, 1]`, a zero-width
+`[0, 1]`, `maxCells` is floored at 0 (`0` disables the cap), a zero-width
 `contourWidth` is lifted off zero, and a degenerate threshold pair renders as a
 hard step instead of `NaN`. The resolved config is frozen, so nothing you pass
 can be mutated out from under another consumer.
@@ -112,6 +112,20 @@ The frame loop is built to stay well inside a 60 fps budget at 1080p:
 - **The loop idles**: it stops while the canvas is off-screen (Intersection
   Observer), while the document is hidden, and whenever the clock is frozen
   (`speed: 0`), and it never repaints an unchanged frame.
+- **The grid is capped.** `maxCells` (20,000 by default) bounds the number of
+  cells, which is what makes cost track viewport _area_. Past the cap the pitch,
+  square size, and noise scale are coarsened by the same factor, so the pattern
+  keeps its on-screen size and just covers a larger slice of the page — a
+  7680x4320 canvas (25 % browser zoom) costs the same as a 4K one instead of
+  nine times as much. Set `maxCells: 0` for an unbounded grid.
+- **Resize storms settle instead of queueing.** Browser zoom changes the element
+  size and `devicePixelRatio` at once, and every step of a Ctrl+scroll does it
+  again. A lone notification still measures and repaints immediately, but once
+  they arrive in a burst each one only pushes a single trailing sync out (and
+  cancels the older pending one), and the loop holds its frames while the
+  browser stretches the existing bitmap for free. Measured on a 20-step
+  zoom-out over 1.7 s: 20 syncs and 3.9 s of blocked main thread before, 3
+  syncs and 57 ms after.
 
 `pnpm bench` prints per-frame cost against the original per-cell renderer for
 three viewports.

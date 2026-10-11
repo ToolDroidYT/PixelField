@@ -179,10 +179,38 @@ test('batches color changes instead of assigning one per cell', () => {
   }
 });
 
+test('maxCells bounds the grid and coarsens the pitch to match', () => {
+  const cfg = resolvePixelFieldConfig();
+
+  // Everyday viewports sit under the cap and keep their exact pitch.
+  for (const { width, height } of SCENARIOS) {
+    const cells = buildFieldCells(width, height, cfg, 18);
+    assert.equal(cells.scale, 1, `${width}x${height} scale`);
+    assert.equal(cells.spacing, cfg.spacing, `${width}x${height} pitch`);
+  }
+
+  // A 4K canvas would otherwise generate ~33k cells (and ~132k at a 25% zoom).
+  const huge = buildFieldCells(3840, 2160, cfg, 18);
+  assert.ok(huge.scale > 1, 'cap should coarsen the pitch');
+  assert.ok(huge.count <= cfg.maxCells, `${huge.count} cells > cap`);
+  assert.equal(huge.spacing, cfg.spacing * huge.scale);
+  // Coarser, but still covering the canvas: at least one origin inside it.
+  assert.ok((huge.cols - 3) * huge.spacing < 3840);
+  assert.ok((huge.rows - 3) * huge.spacing < 2160);
+
+  // Squares and the field grow by the same factor, so the on-screen pattern
+  // holds; only the density drops.
+  const uncapped = resolvePixelFieldConfig({ maxCells: 0 });
+  const raw = buildFieldCells(3840, 2160, uncapped, 18);
+  assert.equal(raw.scale, 1);
+  assert.ok(raw.count > cfg.maxCells);
+});
+
 test('degenerate configs resolve and render without NaN', () => {
   const cfg = resolvePixelFieldConfig({
     spacing: -3,
     pixelSize: NaN,
+    maxCells: -5,
     octaves: 1e9,
     detailWeight: 5,
     contourWidth: 0,
@@ -196,6 +224,7 @@ test('degenerate configs resolve and render without NaN', () => {
   assert.equal(cfg.spacing, 1);
   assert.equal(cfg.pixelSize, DEFAULT_PIXEL_FIELD_CONFIG.pixelSize);
   assert.equal(cfg.octaves, 8);
+  assert.equal(cfg.maxCells, 0);
   assert.equal(cfg.detailWeight, 1);
   assert.equal(cfg.contourWidth, 1e-4);
   assert.deepEqual([...cfg.visibilityRange], [0.5, 0.5]);
