@@ -67,6 +67,10 @@ export function fbm(x: number, y: number, seed: number, octaves = 4): number {
 }
 
 export function smoothstep(a: number, b: number, x: number): number {
-  const t = clamp01((x - a) / (b - a));
+  const span = b - a;
+  // A degenerate range would divide by zero and leak NaN into colors and
+  // alphas; treat it as a hard step at the shared threshold instead.
+  if (span === 0) return x < a ? 0 : 1;
+  const t = clamp01((x - a) / span);
   return t * t * (3 - 2 * t);
 }

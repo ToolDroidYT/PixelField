@@ -41,7 +41,9 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm run typecheck && pnpm run build"
+    "test": "pnpm run build && node --test test/",
+    "bench": "pnpm run build && node bench/frame-cost.mjs",
+    "prepublishOnly": "pnpm run typecheck && pnpm run test"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"

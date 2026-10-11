@@ -12,6 +12,8 @@
     "publish": "pnpm --filter @tooldroid/pixel-field publish --access public",
     "publish:dry-run": "pnpm --filter @tooldroid/pixel-field publish --access public --dry-run",
     "typecheck": "tsc -b",
+    "test": "pnpm --filter @tooldroid/pixel-field test",
+    "bench": "pnpm --filter @tooldroid/pixel-field bench",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

@@ -1,3 +1,4 @@
+import { forwardRef, useCallback, type CSSProperties } from 'react';
 import { usePixelField } from '../hooks/usePixelField';
 import type { PixelFieldConfig } from '../lib/pixelFieldConfig';
 
@@ -28,25 +29,57 @@ export type PixelFieldProps = {
   config?: PixelFieldConfig;
   /** Extra class names merged onto the canvas element. */
   className?: string;
+  /**
+   * Overrides merged over the built-in positioning styles. Use this (or
+   * `className`) to change the layer, opacity, or blend of the field.
+   */
+  style?: CSSProperties;
+};
+
+/**
+ * Defaults live inline rather than in utility classes so the component works
+ * in any stack — a consumer without Tailwind would otherwise get a canvas with
+ * no size and no positioning at all.
+ */
+const BASE_STYLE: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: -1,
+  width: '100%',
+  height: '100%',
+  pointerEvents: 'none',
+  opacity: 0.95,
 };
 
 /**
  * Full-bleed animated noise field. Renders only a canvas; all animation
  * lifecycle (resize, RAF, visibility, cleanup) lives in `usePixelField`.
+ *
+ * Forwards a ref to the underlying `<canvas>` for React 18 and 19 alike.
  */
-export function PixelField({
-  running,
-  seed,
-  config,
-  className = '',
-}: PixelFieldProps) {
-  const canvasRef = usePixelField(running, seed, config);
+export const PixelField = forwardRef<HTMLCanvasElement, PixelFieldProps>(
+  function PixelField(
+    { running, seed, config, className = '', style },
+    forwardedRef,
+  ) {
+    const canvasRef = usePixelField(running, seed, config);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden='true'
-      className={`pointer-events-none absolute inset-0 z-[-1] h-full w-full opacity-95 motion-reduce:opacity-80 ${className}`}
-    />
-  );
-}
+    const setRef = useCallback(
+      (node: HTMLCanvasElement | null) => {
+        canvasRef.current = node;
+        if (typeof forwardedRef === 'function') forwardedRef(node);
+        else if (forwardedRef) forwardedRef.current = node;
+      },
+      [canvasRef, forwardedRef],
+    );
+
+    return (
+      <canvas
+        ref={setRef}
+        aria-hidden='true'
+        className={className}
+        style={style ? { ...BASE_STYLE, ...style } : BASE_STYLE}
+      />
+    );
+  },
+);
