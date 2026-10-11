@@ -16,7 +16,8 @@ const PIXEL_FIELD_CONFIG: PixelFieldConfig = {
   pixelSize: 10,
 
   // Motion: 1 = the hand-tuned baseline rate; 0 freezes the drift entirely.
-  speed: 1,
+  speed: 0.5,
+  maxFps: 15,
 
   // Shape: field values where cells fade in, and the hard alpha ceiling.
   visibilityRange: [0.43, 0.56],
