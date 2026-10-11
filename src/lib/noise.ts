@@ -47,13 +47,17 @@ export function valueNoise(x: number, y: number, seed: number): number {
   return mix(mix(a, b, u), mix(c, d, u), v);
 }
 
-/** Fractal Brownian motion combines broad blobs with finer details. */
-export function fbm(x: number, y: number, seed: number): number {
+/**
+ * Fractal Brownian motion combines broad blobs with finer details.
+ * `octaves` defaults to the prototype's 4; lower is cheaper and softer.
+ */
+export function fbm(x: number, y: number, seed: number, octaves = 4): number {
   let value = 0;
   let amplitude = 0.55;
   let totalAmplitude = 0;
   let frequency = 1;
-  for (let octave = 0; octave < 4; octave++) {
+  const levels = Math.max(1, Math.floor(octaves));
+  for (let octave = 0; octave < levels; octave++) {
     value += valueNoise(x * frequency, y * frequency, seed) * amplitude;
     totalAmplitude += amplitude;
     frequency *= 2.03;

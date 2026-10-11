@@ -1,10 +1,35 @@
 import { usePixelField } from '../hooks/usePixelField';
+import type { PixelFieldConfig } from '../lib/pixelFieldConfig';
+
+export type { PixelFieldConfig };
+export type { RGB, Range } from '../lib/pixelFieldConfig';
 
 export type PixelFieldProps = {
   /** Whether the field is animating. Controlled by the parent. */
   running: boolean;
   /** Bump to regenerate the pattern with a new seed. Controlled by the parent. */
   seed: number;
+  /**
+   * Optional overrides for the field's look and behaviour. Every key is
+   * optional and merged over the defaults, so partial configs are safe and
+   * omitting it entirely reproduces the stock field.
+   *
+   * @example
+   * <PixelField
+   *   running
+   *   seed={1}
+   *   config={{
+   *     spacing: 24,
+   *     pixelSize: 16,
+   *     speed: 0.5,
+   *     colorBase: [20, 28, 44],
+   *     colorRange: [90, 130, 190],
+   *     glint: false,
+   *   }}
+   * />
+   */
+  config?: PixelFieldConfig;
+  /** Extra class names merged onto the canvas element. */
   className?: string;
 };
 
@@ -15,9 +40,10 @@ export type PixelFieldProps = {
 export default function PixelField({
   running,
   seed,
+  config,
   className = '',
 }: PixelFieldProps) {
-  const canvasRef = usePixelField(running, seed);
+  const canvasRef = usePixelField(running, seed, config);
 
   return (
     <canvas
