@@ -170,7 +170,9 @@ function measure(fn) {
 const scanAllMs = measure(scanAll);
 const occupiedMs = measure(scanOccupied);
 
-console.log(`${count} cells, ${occupied} of ${BODY_KEYS} body buckets occupied`);
+console.log(
+  `${count} cells, ${occupied} of ${BODY_KEYS} body buckets occupied`,
+);
 console.log(`  scan-all    ${scanAllMs.toFixed(3)} ms/frame`);
 console.log(`  occupied    ${occupiedMs.toFixed(3)} ms/frame`);
 console.log(

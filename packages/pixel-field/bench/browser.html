@@ -97,7 +97,8 @@
       const WARMUP = number('warmup') ?? 60;
       const MODE = params.get('mode') ?? 'animated';
       const SEED = number('seed') ?? 18;
-      const LABEL = params.get('label') ?? (location.search.slice(1) || 'default');
+      const LABEL =
+        params.get('label') ?? (location.search.slice(1) || 'default');
 
       /**
        * `phase=full` (default) measures the whole pipeline. `phase=draw` runs
@@ -177,7 +178,8 @@
        * bucket list in the identical order, so the pixels drawn are the same.
        */
       const drawPrepared = () => {
-        const { counts, offsets, order, bodyUsed, glintUsed, palette } = buffers;
+        const { counts, offsets, order, bodyUsed, glintUsed, palette } =
+          buffers;
         const usedSets = [
           [bodyUsed, buffers.bodyUsedCount, false],
           [glintUsed, buffers.glintUsedCount, true],
@@ -237,7 +239,9 @@
       const percentile = (values, p) => {
         if (values.length === 0) return 0;
         const sorted = [...values].sort((a, b) => a - b);
-        return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+        return sorted[
+          Math.min(sorted.length - 1, Math.floor(p * sorted.length))
+        ];
       };
 
       /**

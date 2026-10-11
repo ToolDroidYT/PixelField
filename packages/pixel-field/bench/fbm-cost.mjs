@@ -62,7 +62,8 @@ function planned(plan, x, y, seed) {
   let value = 0;
   for (let octave = 0; octave < octaves; octave++) {
     const frequency = frequencies[octave];
-    value += valueNoise(x * frequency, y * frequency, seed) * amplitudes[octave];
+    value +=
+      valueNoise(x * frequency, y * frequency, seed) * amplitudes[octave];
   }
   return value / totalAmplitude;
 }
@@ -140,7 +141,9 @@ const variants = [
   ['fbm() [dist]', (x, y) => fbm(x, y, SEED, LEVELS)],
 ];
 
-console.log(`${'variant'.padEnd(22)} ${'ms'.padStart(8)} ${'M samples/s'.padStart(12)}  vs scalar`);
+console.log(
+  `${'variant'.padEnd(22)} ${'ms'.padStart(8)} ${'M samples/s'.padStart(12)}  vs scalar`,
+);
 console.log('-'.repeat(52));
 
 const scalarMs = measure(variants[0][1]);
