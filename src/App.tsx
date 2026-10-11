@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PixelField, type PixelFieldConfig } from '@tooldroid/pixel-field';
+import { Minus, Plus } from 'lucide-react';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -90,13 +91,29 @@ function App() {
           >
             {running ? 'Pause animation' : 'Resume animation'}
           </button>
-          <button
-            type='button'
-            className={BUTTON_SECONDARY}
-            onClick={() => setSeed((value) => value + 1)}
-          >
-            Change pattern
-          </button>
+          <div className={BUTTON_SECONDARY}>
+            Seed
+            <div className='ml-2 flex items-center gap-1'>
+              <button>
+                <Minus
+                  className='h-4 w-4'
+                  onClick={() => setSeed((value) => value - 1)}
+                />
+              </button>
+              <input
+                type='number'
+                value={seed}
+                onChange={(e) => setSeed(Number(e.target.value))}
+                className='w-8 text-center'
+              />
+              <button>
+                <Plus
+                  className='h-4 w-4'
+                  onClick={() => setSeed((value) => value + 1)}
+                />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </main>
