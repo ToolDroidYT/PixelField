@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PixelField browser bench</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0a0908;
+        overflow: hidden;
+      }
+      canvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #hud {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 10;
+        margin: 0;
+        padding: 6px 8px;
+        background: rgba(10, 9, 8, 0.75);
+        color: #9f9;
+        font:
+          12px/1.45 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        white-space: pre;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="field"></canvas>
+    <pre id="hud">starting…</pre>
+    <script type="module">
+      /**
+       * Real-browser frame benchmark for the PixelField renderer.
+       *
+       * `bench/frame-cost.mjs` runs in Node against a mock canvas whose draw
+       * calls are free, so it can only see the JavaScript side. This page runs
+       * the same pipeline on a real <canvas> and records two signals:
+       *
+       *   paintMs — time inside `paintField` (scripting: noise, keys, sorting,
+       *             fillStyle/fillRect issuing). Excludes raster/compositing.
+       *   rafMs   — RAF-to-RAF interval, which *does* include rasterization,
+       *             compositing, and anything else competing for the frame.
+       *
+       * Results land on `window.__result`; `window.__benchDone` flips true when
+       * a run finishes, so an automation driver can await them.
+       *
+       * Query parameters:
+       *   frames=300       measured frames after `warmup`
+       *   warmup=60        discarded frames (JIT, first-paint allocation)
+       *   mode=animated    `animated` advances the clock, `static` freezes it
+       *   seed=18
+       *   label=text       echoed back in the result
+       *   octaves, warpOctaves, renderScale, quality, spacing, maxCells,
+       *   warpAmount, pixelSize   — passed straight to `resolvePixelFieldConfig`
+       *
+       * Serve the package root over HTTP (ES modules do not load from file://):
+       *   python3 -m http.server 4173 --directory packages/pixel-field
+       */
+      import {
+        buildFieldCells,
+        createFieldRenderBuffers,
+        paintField,
+        resolvePixelFieldConfig,
+      } from '../dist/index.js';
+
+      const params = new URLSearchParams(location.search);
+      const number = (key) => {
+        const raw = params.get(key);
+        if (raw === null) return undefined;
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : undefined;
+      };
+
+      const FRAMES = number('frames') ?? 300;
+      const WARMUP = number('warmup') ?? 60;
+      const MODE = params.get('mode') ?? 'animated';
+      const SEED = number('seed') ?? 18;
+      const LABEL = params.get('label') ?? (location.search.slice(1) || 'default');
+
+      /** Base clock step per millisecond — mirrors `usePixelField`. */
+      const TIME_STEP = 0.00136;
+
+      const overrides = {};
+      for (const key of [
+        'octaves',
+        'warpOctaves',
+        'renderScale',
+        'quality',
+        'spacing',
+        'pixelSize',
+        'maxCells',
+        'warpAmount',
+      ]) {
+        const value = number(key);
+        if (value !== undefined) overrides[key] = value;
+      }
+      const quality = params.get('quality');
+      if (quality) overrides.quality = quality;
+
+      const config = resolvePixelFieldConfig(overrides);
+      const canvas = document.getElementById('field');
+      const hud = document.getElementById('hud');
+      const ctx = canvas.getContext('2d', { alpha: true });
+
+      const cssWidth = window.innerWidth;
+      const cssHeight = window.innerHeight;
+      const renderScale = config.renderScale ?? 1;
+      const dpr =
+        Math.min(window.devicePixelRatio || 1, Math.max(1, config.maxDpr)) *
+        renderScale;
+
+      canvas.width = Math.max(1, Math.round(cssWidth * dpr));
+      canvas.height = Math.max(1, Math.round(cssHeight * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const cells = buildFieldCells(cssWidth, cssHeight, config, SEED);
+      const buffers = createFieldRenderBuffers(cells.count);
+      const baseNoiseScale =
+        config.noiseScale === 'auto'
+          ? Math.max(
+              config.autoScaleMin,
+              Math.min(config.autoScaleMax, cssWidth * config.autoScaleFactor),
+            )
+          : config.noiseScale;
+      const noiseScale = baseNoiseScale * cells.scale;
+
+      const view = {
+        width: cssWidth,
+        height: cssHeight,
+        noiseScale,
+        time: 0,
+        seed: SEED,
+      };
+
+      const paintSamples = [];
+      const rafSamples = [];
+      let frame = 0;
+      let previous = 0;
+      let time = 0;
+      let drawn = 0;
+
+      const percentile = (values, p) => {
+        if (values.length === 0) return 0;
+        const sorted = [...values].sort((a, b) => a - b);
+        return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+      };
+
+      const tick = (now) => {
+        if (previous) rafSamples.push(now - previous);
+        previous = now;
+
+        if (MODE === 'animated') time += (1000 / 60) * TIME_STEP;
+        view.time = time;
+
+        const start = performance.now();
+        paintField(ctx, cells, buffers, view, config);
+        const paintMs = performance.now() - start;
+
+        if (frame >= WARMUP) paintSamples.push(paintMs);
+        frame++;
+
+        if (frame % 10 === 0) {
+          hud.textContent =
+            `${LABEL}\n` +
+            `frame ${frame - WARMUP}/${FRAMES}\n` +
+            `paint p50 ${percentile(paintSamples, 0.5).toFixed(2)} ms  ` +
+            `raf p50 ${percentile(rafSamples, 0.5).toFixed(1)} ms`;
+        }
+
+        if (frame - WARMUP >= FRAMES) {
+          for (let i = 0; i < buffers.bodyKeys.length; i++) {
+            if (buffers.bodyKeys[i] >= 0) drawn++;
+          }
+
+          const over16 = rafSamples.filter((v) => v > 16.67).length;
+          const over33 = rafSamples.filter((v) => v > 33.34).length;
+          const result = {
+            label: LABEL,
+            viewport: `${cssWidth}x${cssHeight}`,
+            dpr: Number(dpr.toFixed(3)),
+            mode: MODE,
+            cells: cells.count,
+            drawn,
+            frames: paintSamples.length,
+            paintP50: Number(percentile(paintSamples, 0.5).toFixed(3)),
+            paintP95: Number(percentile(paintSamples, 0.95).toFixed(3)),
+            rafP50: Number(percentile(rafSamples, 0.5).toFixed(2)),
+            rafP95: Number(percentile(rafSamples, 0.95).toFixed(2)),
+            over16Pct: Number(
+              ((100 * over16) / Math.max(1, rafSamples.length)).toFixed(1),
+            ),
+            over33Pct: Number(
+              ((100 * over33) / Math.max(1, rafSamples.length)).toFixed(1),
+            ),
+            config: {
+              octaves: config.octaves,
+              warpOctaves: config.warpOctaves,
+              renderScale: config.renderScale,
+              quality: config.quality,
+              spacing: config.spacing,
+            },
+          };
+          window.__result = result;
+          window.__benchDone = true;
+          hud.textContent =
+            `${LABEL} — done\n` +
+            `paint p50 ${result.paintP50} ms  p95 ${result.paintP95} ms\n` +
+            `raf p50 ${result.rafP50} ms  p95 ${result.rafP95} ms\n` +
+            `>16.67ms ${result.over16Pct}%  >33.34ms ${result.over33Pct}%\n` +
+            `${result.cells} cells, ${result.drawn} drawn`;
+          return;
+        }
+
+        requestAnimationFrame(tick);
+      };
+
+      requestAnimationFrame(tick);
+    </script>
+  </body>
+</html>
