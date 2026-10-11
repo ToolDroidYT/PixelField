@@ -84,7 +84,8 @@ Values are normalized on resolve: non-finite numbers fall back to the default,
 `octaves` is clamped to `[1, 8]` (an unbounded value is a hang — it is one fbm
 loop per octave per cell), blend weights and probabilities are clamped to
 `[0, 1]`, `maxCells` is floored at 0 (`0` disables the cap), `maxFps` is
-clamped to `[0, 240]` (`0` uncaps it), a zero-width
+rounded and clamped to at most `240` (a value below `1` falls back to the
+default and warns outside production), a zero-width
 `contourWidth` is lifted off zero, and a degenerate threshold pair renders as a
 hard step instead of `NaN`. The resolved config is frozen, so nothing you pass
 can be mutated out from under another consumer.
@@ -116,8 +117,7 @@ The frame loop is built to stay well inside a 60 fps budget at 1080p:
 - **Repaints are capped.** `maxFps` (30 by default) bounds how often the field
   reaches the canvas, which suits a slow drift and roughly halves the paint
   work against a 60 Hz display. The clock still advances on every tick, so the
-  motion is the same speed at any cap — set `maxFps: 0` to repaint on every
-  RAF tick.
+  motion is the same speed at any cap — 240 is effectively uncapped.
 - **The grid is capped.** `maxCells` (20,000 by default) bounds the number of
   cells, which is what makes cost track viewport _area_. Past the cap the pitch,
   square size, and noise scale are coarsened by the same factor, so the pattern

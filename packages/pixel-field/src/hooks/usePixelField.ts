@@ -347,7 +347,8 @@ export function usePixelField(
         // half-millisecond grace absorbs rAF timestamp granularity, which
         // would otherwise make a 30 fps target on a 60 Hz display alternate
         // between two-frame and three-frame gaps.
-        const interval = cfg.maxFps > 0 ? 1000 / cfg.maxFps : 0;
+        // `resolvePixelFieldConfig` guarantees `maxFps >= 1`.
+        const interval = 1000 / cfg.maxFps;
         if (now - lastPaintRef.current >= interval - 0.5) {
           lastPaintRef.current = now;
           paint();

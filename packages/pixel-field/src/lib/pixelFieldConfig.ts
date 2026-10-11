@@ -42,9 +42,12 @@ export type PixelFieldConfig = {
   /** Cap (ms) on the per-frame time delta, smoothing out tab-switch jumps. */
   maxFrameDelta?: number;
   /**
-   * Upper bound on painted frames per second; `0` paints on every RAF tick.
-   * The clock is unaffected, so the field drifts at the same speed — a lower
-   * cap just skips the paints in between.
+   * Upper bound on painted frames per second. The clock is unaffected, so the
+   * field drifts at the same speed at any cap — a lower one just skips the
+   * paints in between. The maximum, 240, is effectively uncapped.
+   *
+   * Values below `1` are treated as a mistake rather than a request to uncap
+   * the loop: they fall back to the default and warn outside production.
    */
   maxFps?: number;
   /**
@@ -73,6 +76,17 @@ export type PixelFieldConfig = {
    * higher means finer detail at more cost.
    */
   octaves?: number;
+  /**
+   * fbm octaves used by the two domain-warp samples only, clamped to `[1, 8]`.
+   *
+   * The warp bends the field at low frequency, so it tolerates fewer octaves
+   * than the broad/detail layers: `2` instead of `4` removes two full fBm
+   * evaluations' worth of octaves from every cell while the shapes stay close.
+   *
+   * When omitted it follows `octaves`, which is exactly what the renderer did
+   * before this key existed — so leaving it out reproduces the old output.
+   */
+  warpOctaves?: number;
 
   // --- Shape thresholds -------------------------------------------------
   /** Field values where a cell starts becoming visible (soft edges). */
@@ -164,7 +178,7 @@ const SPANS: Partial<Record<keyof ResolvedPixelFieldConfig, Span>> = {
   flowSpeed: { min: 0 },
   warpSpeed: { min: 0 },
   maxFrameDelta: { min: 0 },
-  maxFps: { min: 0, max: 240, integer: true },
+  maxFps: { max: 240, integer: true },
 
   noiseScale: { min: 1e-6 },
   autoScaleMin: { min: 1 },
@@ -175,6 +189,7 @@ const SPANS: Partial<Record<keyof ResolvedPixelFieldConfig, Span>> = {
   detailWeight: { min: 0, max: 1 },
   // Unbounded octaves is a hang: `fbm` loops once per octave per sample.
   octaves: { min: 1, max: 8, integer: true },
+  warpOctaves: { min: 1, max: 8, integer: true },
 
   // A zero-width band divides by zero in the contour term.
   contourWidth: { min: 1e-4 },
@@ -222,7 +237,7 @@ export const DEFAULT_PIXEL_FIELD_CONFIG: ResolvedPixelFieldConfig =
     warpSpeed: 1,
     maxFrameDelta: 40,
     // The field drifts slowly, so 30 fps is visually indistinguishable from a
-    // full-rate repaint and halves the paint work. `maxFps: 0` uncaps it.
+    // full-rate repaint and halves the paint work.
     maxFps: 30,
     respectReducedMotion: true,
 
@@ -234,6 +249,9 @@ export const DEFAULT_PIXEL_FIELD_CONFIG: ResolvedPixelFieldConfig =
     detailScale: 1.72,
     detailWeight: 0.18,
     octaves: 4,
+    // Mirrors `octaves`; `resolvePixelFieldConfig` re-derives it from the
+    // resolved `octaves` whenever the caller leaves it out.
+    warpOctaves: 4,
 
     visibilityRange: Object.freeze([0.43, 0.56]) as Range,
     bodyRange: Object.freeze([0.48, 0.72]) as Range,
@@ -270,6 +288,23 @@ export const DEFAULT_PIXEL_FIELD_CONFIG: ResolvedPixelFieldConfig =
 /** A missing or non-finite entry falls back to the baseline value. */
 function finite(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+/**
+ * Replaced statically by bundlers; declared here so the package needs no Node
+ * type dependency.
+ */
+declare const process: { env?: { NODE_ENV?: string } } | undefined;
+
+const warnedKeys = new Set<string>();
+
+/** One dev-time signal per key, for a value the resolver had to replace. */
+function warnOnce(key: string, message: string): void {
+  if (warnedKeys.has(key)) return;
+  warnedKeys.add(key);
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production')
+    return;
+  console.warn(message);
 }
 
 function clamp(value: number, span: Span | undefined): number {
@@ -343,6 +378,26 @@ export function resolvePixelFieldConfig(
     }
 
     Object.assign(resolved, { [key]: next });
+  }
+
+  // `warpOctaves` follows `octaves` unless the caller pinned it, so a config
+  // that only sets `octaves` warps exactly as it did before the key existed.
+  const warpOctaves = config.warpOctaves;
+  if (typeof warpOctaves !== 'number' || !Number.isFinite(warpOctaves)) {
+    resolved.warpOctaves = resolved.octaves;
+  }
+
+  // A frame rate below 1 is a mistake, not a request to uncap the loop: `0`
+  // turns up in hand-built configs (a slider at rest, an uninitialised state),
+  // and repainting on every tick would burn the CPU the cap exists to save.
+  if (resolved.maxFps < 1) {
+    warnOnce(
+      'maxFps',
+      `@tooldroid/pixel-field: maxFps must be at least 1 (got ${String(
+        config.maxFps,
+      )}); using the default of ${DEFAULT_PIXEL_FIELD_CONFIG.maxFps}.`,
+    );
+    resolved.maxFps = DEFAULT_PIXEL_FIELD_CONFIG.maxFps;
   }
 
   return Object.freeze(resolved);

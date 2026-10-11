@@ -47,15 +47,28 @@ test('resolution ignores unknown keys and lets undefined fall back', () => {
   assert.deepEqual([...resolved.colorBase], [...DEFAULTS.colorBase]);
   assert.equal('spacingTypo' in resolved, false);
 
-  // The fps cap normalizes like the other scalars: finite values clamp into
-  // the documented span, `0` uncaps, and junk falls back to the default.
+  // The fps cap rounds into its span; junk — including a frame rate below 1,
+  // which would mean "repaint on every tick" — falls back to the default.
   assert.equal(resolvePixelFieldConfig().maxFps, 30);
-  assert.equal(resolvePixelFieldConfig({ maxFps: 0 }).maxFps, 0);
-  assert.equal(resolvePixelFieldConfig({ maxFps: -5 }).maxFps, 0);
   assert.equal(resolvePixelFieldConfig({ maxFps: 1e9 }).maxFps, 240);
   assert.equal(resolvePixelFieldConfig({ maxFps: 59.4 }).maxFps, 59);
   assert.equal(resolvePixelFieldConfig({ maxFps: 59.5 }).maxFps, 60);
   assert.equal(resolvePixelFieldConfig({ maxFps: Number.NaN }).maxFps, 30);
+
+  // `maxFps: 0` is the mistake this guard exists for, so it warns — once —
+  // instead of silently uncapping the loop.
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(' '));
+  try {
+    assert.equal(resolvePixelFieldConfig({ maxFps: 0 }).maxFps, 30);
+    assert.equal(resolvePixelFieldConfig({ maxFps: -5 }).maxFps, 30);
+    assert.equal(resolvePixelFieldConfig({ maxFps: 60 }).maxFps, 60);
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /maxFps must be at least 1/);
 
   // And it takes part in value equality like every other key.
   assert.equal(
