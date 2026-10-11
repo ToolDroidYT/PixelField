@@ -31,13 +31,17 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tooldroid/PixelField.git",
+    "url": "git+https://github.com/ToolDroidYT/PixelField.git",
     "directory": "packages/pixel-field"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run typecheck && pnpm run build"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"

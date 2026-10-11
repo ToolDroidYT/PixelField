@@ -27,16 +27,18 @@ hot module replacement works across the package boundary.
 
 ## Scripts
 
-| Script                | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| `pnpm dev`            | Start the demo app with HMR.                        |
-| `pnpm build`          | Typecheck and build the demo app for production.    |
-| `pnpm build:packages` | Build the library into `packages/pixel-field/dist`. |
-| `pnpm typecheck`      | Typecheck every project in the workspace.           |
-| `pnpm lint`           | Run Oxlint.                                         |
-| `pnpm format`         | Format the whole workspace with Prettier.           |
-| `pnpm format:check`   | Check formatting without writing.                   |
-| `pnpm preview`        | Preview the production build.                       |
+| Script                     | Description                                                 |
+| -------------------------- | ----------------------------------------------------------- |
+| `pnpm dev`                 | Start the demo app with HMR.                                |
+| `pnpm build`               | Typecheck and build the demo app for production.            |
+| `pnpm build:packages`      | Build the library into `packages/pixel-field/dist`.         |
+| `pnpm run publish`         | Build the library and publish it to npm.                    |
+| `pnpm run publish:dry-run` | Build and print what would be published, without uploading. |
+| `pnpm typecheck`           | Typecheck every project in the workspace.                   |
+| `pnpm lint`                | Run Oxlint.                                                 |
+| `pnpm format`              | Format the whole workspace with Prettier.                   |
+| `pnpm format:check`        | Check formatting without writing.                           |
+| `pnpm preview`             | Preview the production build.                               |
 
 ## @tooldroid/pixel-field
 
@@ -59,12 +61,32 @@ ancestor, so place it inside a `position: relative` container.
 The package ships ESM, CJS and type declarations. To publish a new version:
 
 ```sh
-pnpm --filter @tooldroid/pixel-field build
-pnpm --filter @tooldroid/pixel-field publish --access public
+# bump the version first (in packages/pixel-field)
+pnpm --filter @tooldroid/pixel-field version patch
+
+# see exactly what would go into the tarball
+pnpm run publish:dry-run
+
+# build + publish
+pnpm run publish
 ```
 
-`files` in `packages/pixel-field/package.json` already limits the tarball to
-`dist` and the README, and `dist` is gitignored.
+`publish` builds `dist`, then runs `pnpm publish` for
+`@tooldroid/pixel-field` with `--access public`. `prepublishOnly` in the
+package re-runs typecheck + build as a safety net, so `dist` is never stale.
+
+Notes:
+
+- Authenticate once with `npm login` (or export `NPM_TOKEN`); pnpm reuses npm's
+  credentials.
+- `pnpm version` and `pnpm publish` both refuse to run on a dirty checkout.
+  Commit first; add `--no-git-tag-version` (version) or `--no-git-checks`
+  (publish) to skip the git bookkeeping.
+- `files` in `packages/pixel-field/package.json` already limits the tarball to
+  `dist` and the README, and `dist` is gitignored.
+- The package name is scoped, so `access: public` is set in `publishConfig`
+  (and passed via `--access public`) — scoped packages default to restricted
+  and would otherwise fail without a paid npm org.
 
 ## Configuration
 
