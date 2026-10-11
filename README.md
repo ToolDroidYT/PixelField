@@ -1,4 +1,4 @@
-# PixelGrid-Noise
+# PixelField
 
 A living field of smooth, drifting noise rendered as a grid of animated pixels.
 Each pixel carries its own intensity, so the pattern feels layered instead of
