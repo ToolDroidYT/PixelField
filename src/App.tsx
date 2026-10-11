@@ -19,7 +19,7 @@ const PIXEL_FIELD_CONFIG: PixelFieldConfig = {
 
   // Shape: field values where cells fade in, and the hard alpha ceiling.
   visibilityRange: [0.43, 0.56],
-  alphaCap: 0.3,
+  alphaCap: 1,
 
   // Color: warm charcoal → off-white ramp, matching the page's ink/paper tones.
   colorBase: [54, 51, 48],
