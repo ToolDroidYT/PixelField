@@ -6,7 +6,11 @@ import {
   useState,
   type RefObject,
 } from 'react';
-import { buildFieldCells, type FieldCells } from '../lib/cells';
+import {
+  buildFieldCells,
+  isGridGeometryEqual,
+  type FieldCells,
+} from '../lib/cells';
 import {
   pixelFieldConfigEquals,
   pixelFieldLayoutKey,
@@ -21,74 +25,6 @@ import {
 } from '../lib/renderField';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-// --- TEMP DIAGNOSTICS ---
-type DiagStats = {
-  sched: number;
-  syncs: number;
-  builds: number;
-  paints: number;
-  cellArrays: number;
-  cellBytes: number;
-  timers: number;
-  observers: number;
-  rafStarts: number;
-  schedImmediate: number;
-  schedArmed: number;
-  schedForced: number;
-  frameTicks: number;
-  frameBlocked: number;
-  backingSets: number;
-  backingBytes: number;
-  syncMs: number;
-  buildMs: number;
-  paintMs: number;
-  pRaf: number;
-  pSync: number;
-  pOther: number;
-};
-declare global {
-  interface Window {
-    __pfStats?: DiagStats;
-    __pfModuleCount?: number;
-    __pfSettle?: { t: number; f: number; same: number };
-  }
-}
-function newStats(): DiagStats {
-  return {
-    sched: 0,
-    syncs: 0,
-    builds: 0,
-    paints: 0,
-    cellArrays: 0,
-    cellBytes: 0,
-    timers: 0,
-    observers: 0,
-    rafStarts: 0,
-    schedImmediate: 0,
-    schedArmed: 0,
-    schedForced: 0,
-    frameTicks: 0,
-    frameBlocked: 0,
-    backingSets: 0,
-    backingBytes: 0,
-    syncMs: 0,
-    buildMs: 0,
-    paintMs: 0,
-    pRaf: 0,
-    pSync: 0,
-    pOther: 0,
-  };
-}
-const stats: DiagStats =
-  typeof window !== 'undefined'
-    ? (window.__pfStats ??= newStats())
-    : newStats();
-if (typeof window !== 'undefined') {
-  window.__pfModuleCount = (window.__pfModuleCount || 0) + 1;
-  window.__pfSettle = window.__pfSettle || { t: 0, f: 0, same: 0 };
-}
-// --- END TEMP DIAGNOSTICS ---
 
 /** Quiet period a burst of resize notifications must reach before syncing. */
 const SYNC_SETTLE_MS = 300;
@@ -135,6 +71,7 @@ export function usePixelField(
   const inViewRef = useRef(true);
   // Deferred sync, if one is waiting out a burst of resize notifications.
   const syncPendingRef = useRef<{ timer: number; since: number } | null>(null);
+  const pendingSizeRef = useRef<{ width: number; height: number } | null>(null);
   const syncLastRef = useRef(0);
   // True while riding out a resize burst: the loop holds its frames instead of
   // repainting a canvas the browser is already stretching for free.
@@ -178,8 +115,6 @@ export function usePixelField(
   }, []);
 
   const paint = useCallback(() => {
-    stats.paints++;
-    const __t0 = performance.now();
     // Nothing to paint for a field nobody can see: a resize (or the trailing
     // sync of a resize burst) can leave the bitmap stale, and the loop's first
     // frame back in view repaints it from the same refs.
@@ -204,27 +139,15 @@ export function usePixelField(
     view.time = timeRef.current;
     view.seed = seedRef.current;
     paintField(ctx, cells, buffers, view, configRef.current);
-    stats.paintMs += performance.now() - __t0;
   }, [getCtx]);
 
   const buildCells = useCallback(() => {
-    stats.builds++;
-    const __t0 = performance.now();
-    const w = widthRef.current;
-    const h = heightRef.current;
-    const cfg = configRef.current;
-    const pitch = Math.max(1, cfg.spacing);
-    const est =
-      (Math.ceil(w / pitch) + 3) * (Math.ceil(h / pitch) + 3);
-    stats.cellArrays += 4;
-    stats.cellBytes += 4 * Math.min(est, cfg.maxCells > 0 ? cfg.maxCells : est) * 8;
     cellsRef.current = buildFieldCells(
       widthRef.current,
       heightRef.current,
       configRef.current,
       seedRef.current,
     );
-    stats.buildMs += performance.now() - __t0;
   }, []);
 
   /**
@@ -234,8 +157,6 @@ export function usePixelField(
    */
   const syncSize = useCallback(
     (width?: number, height?: number, forceCells = false) => {
-      stats.syncs++;
-      const __t0 = performance.now();
       const canvas = canvasRef.current;
       if (!canvas) return;
       const cfg = configRef.current;
@@ -243,10 +164,17 @@ export function usePixelField(
       let w = width;
       let h = height;
       if (w === undefined || h === undefined) {
-        const rect = canvas.getBoundingClientRect();
-        w = rect.width;
-        h = rect.height;
+        if (widthRef.current > 0 && heightRef.current > 0) {
+          w = widthRef.current;
+          h = heightRef.current;
+        } else {
+          const rect = canvas.getBoundingClientRect();
+          w = rect.width;
+          h = rect.height;
+        }
       }
+
+      if (w <= 0 || h <= 0) return;
 
       const dpr = Math.min(
         window.devicePixelRatio || 1,
@@ -254,7 +182,6 @@ export function usePixelField(
       );
       const backingWidth = Math.round(w * dpr);
       const backingHeight = Math.round(h * dpr);
-      const sizeChanged = w !== widthRef.current || h !== heightRef.current;
       widthRef.current = w;
       heightRef.current = h;
 
@@ -262,14 +189,21 @@ export function usePixelField(
       // only touch it when the target differs — a DPR-only change then costs
       // one repaint instead of a rebuild.
       if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
-        stats.backingSets++;
-        stats.backingBytes += backingWidth * backingHeight * 4;
         canvas.width = backingWidth;
         canvas.height = backingHeight;
         getCtx()?.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
-      if (sizeChanged || forceCells || !cellsRef.current) buildCells();
+      // Rebuilding the grid allocates typed arrays and samples randoms for thousands
+      // of cells. When a resize only shifts container dimensions without altering the
+      // coarsened scale or adding/removing rows or columns, the existing cells are bit-identical.
+      if (
+        forceCells ||
+        !cellsRef.current ||
+        !isGridGeometryEqual(cellsRef.current, w, h, cfg)
+      ) {
+        buildCells();
+      }
 
       // Scale blob size gently with the canvas, while keeping mobile shapes visible.
       const baseNoiseScale =
@@ -284,7 +218,6 @@ export function usePixelField(
       noiseScaleRef.current = baseNoiseScale * (cellsRef.current?.scale ?? 1);
 
       paint();
-      stats.syncMs += performance.now() - __t0;
     },
     [buildCells, getCtx, paint],
   );
@@ -295,9 +228,10 @@ export function usePixelField(
     if (pending) clearTimeout(pending.timer);
     syncPendingRef.current = null;
     settlingRef.current = false;
-    window.__pfSettle!.f++;
     syncLastRef.current = performance.now();
-    syncSize();
+    const size = pendingSizeRef.current;
+    pendingSizeRef.current = null;
+    syncSize(size?.width, size?.height);
   }, [syncSize]);
 
   /**
@@ -317,33 +251,43 @@ export function usePixelField(
    * `SYNC_MAX_WAIT_MS` bounds how long a gesture that never settles can defer
    * it, so a long window drag still tracks rather than freezing.
    */
-  const scheduleSync = useCallback(() => {
-    stats.sched++;
-    const now = performance.now();
-    const pending = syncPendingRef.current;
-    // "Burst" is a notification arriving either while a trailing sync is still
-    // armed or right on the heels of one that just ran — the pair of
-    // notifications a single zoom step produces is exactly that shape.
-    if (!pending && now - syncLastRef.current >= SYNC_SETTLE_MS) {
-      stats.schedImmediate++;
-      runSync();
-      return;
-    }
-    const since = pending?.since ?? syncLastRef.current;
-    if (now - since >= SYNC_MAX_WAIT_MS) {
-      stats.schedForced++;
-      runSync();
-      return;
-    }
-    if (pending) clearTimeout(pending.timer);
-    stats.schedArmed++;
-    settlingRef.current = true;
-    window.__pfSettle!.t++;
-    syncPendingRef.current = {
-      since,
-      timer: window.setTimeout(runSync, SYNC_SETTLE_MS),
+  const scheduleSync = useCallback(
+    (width?: number, height?: number) => {
+      if (width !== undefined && height !== undefined) {
+        pendingSizeRef.current = { width, height };
+      }
+      const now = performance.now();
+      const pending = syncPendingRef.current;
+      // "Burst" is a notification arriving either while a trailing sync is still
+      // armed or right on the heels of one that just ran — the pair of
+      // notifications a single zoom step produces is exactly that shape.
+      if (!pending && now - syncLastRef.current >= SYNC_SETTLE_MS) {
+        runSync();
+        return;
+      }
+      const since =
+        pending?.since ?? (syncLastRef.current > 0 ? syncLastRef.current : now);
+      if (now - since >= SYNC_MAX_WAIT_MS) {
+        runSync();
+        return;
+      }
+      if (pending) clearTimeout(pending.timer);
+      settlingRef.current = true;
+      syncPendingRef.current = {
+        since,
+        timer: window.setTimeout(runSync, SYNC_SETTLE_MS),
+      };
+    },
+    [runSync],
+  );
+
+  // Clean up large buffers on unmount so detached canvases don't retain memory.
+  useEffect(() => {
+    return () => {
+      cellsRef.current = null;
+      buffersRef.current = null;
     };
-  }, [runSync]);
+  }, []);
 
   // Size tracking: ResizeObserver also catches container-only layout changes
   // that a window resize listener would miss. Measuring only when notified
@@ -352,36 +296,49 @@ export function usePixelField(
     const canvas = canvasRef.current;
     if (!canvas) return;
     syncSize(undefined, undefined, true);
-    stats.observers++;
-    const observer = new ResizeObserver(() => scheduleSync());
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      // Skip redundant notifications when layout size hasn't changed.
+      if (width === widthRef.current && height === heightRef.current) return;
+      scheduleSync(width, height);
+    });
     observer.observe(canvas);
     return () => {
-      stats.observers--;
       observer.disconnect();
       const pending = syncPendingRef.current;
       if (pending) clearTimeout(pending.timer);
       syncPendingRef.current = null;
+      pendingSizeRef.current = null;
       settlingRef.current = false;
-      window.__pfSettle!.f++;
     };
   }, [scheduleSync, syncSize]);
 
   // Moving between displays (or zooming) changes `devicePixelRatio` without
   // changing the element's size, which the ResizeObserver never sees.
+  // Previous MediaQueryList listeners must be unregistered on every resolution
+  // change to avoid memory leaks.
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
-    const watch = () =>
-      window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
-    let media = watch();
+    let media: MediaQueryList | null = window.matchMedia(
+      `(resolution: ${window.devicePixelRatio}dppx)`,
+    );
     const onChange = () => {
-      // The measurement is deferred; re-subscribing is not, so a second zoom
-      // step in the same frame is still caught.
       scheduleSync();
-      media = watch();
+      if (media) {
+        media.removeEventListener('change', onChange);
+      }
+      media = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
       media.addEventListener('change', onChange);
     };
     media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
+    return () => {
+      if (media) {
+        media.removeEventListener('change', onChange);
+        media = null;
+      }
+    };
   }, [scheduleSync]);
 
   // Off-screen fields keep running for free otherwise; scrolling one back into
@@ -431,8 +388,6 @@ export function usePixelField(
       const dt = last ? Math.min(now - last, cfg.maxFrameDelta) : 16;
       lastTimeRef.current = now;
       const next = timeRef.current + dt * TIME_STEP * cfg.speed;
-      stats.frameTicks++;
-      if (settlingRef.current) stats.frameBlocked++;
       // Hold the frame when the clock is frozen (`speed: 0` — it would repaint
       // an identical frame) or while a resize burst is in flight: the browser
       // is already stretching the last bitmap for free, and the trailing sync
@@ -480,7 +435,6 @@ export function usePixelField(
     }
 
     document.addEventListener('visibilitychange', onVisibilityChange);
-    stats.rafStarts++;
     rafRef.current = requestAnimationFrame(frame);
 
     return () => {
@@ -515,7 +469,7 @@ export function usePixelField(
       return;
     }
     appliedLayoutRef.current = layoutKey;
-    syncSize();
+    syncSize(undefined, undefined, true);
   }, [configEpoch, paint, syncSize]);
 
   return canvasRef;
