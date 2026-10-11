@@ -105,36 +105,9 @@
                 transform: translateY(12px);
             }
 
-            .pill {
-                padding: 10px 15px;
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 999px;
-                background: rgba(255, 255, 255, 0.045);
-                color: #ddd8d2;
-                font-size: 13px;
-                letter-spacing: 0.015em;
-            }
-
             .content {
                 width: min(760px, 100%);
                 padding-top: 42px;
-            }
-            .eyebrow {
-                display: inline-flex;
-                align-items: center;
-                gap: 9px;
-                margin-bottom: 24px;
-                color: #d4cfca;
-                font-size: 13px;
-                letter-spacing: 0.02em;
-            }
-            .eyebrow::before {
-                content: '';
-                width: 7px;
-                height: 7px;
-                border-radius: 50%;
-                background: #b4aaa0;
-                box-shadow: 0 0 12px rgba(210, 194, 177, 0.45);
             }
 
             h1 {
@@ -186,15 +159,6 @@
                 color: #181513;
                 border-color: #e8e2dc;
             }
-            .hint {
-                position: absolute;
-                bottom: 24px;
-                right: clamp(28px, 7vw, 88px);
-                color: #746e68;
-                font-size: 11px;
-                letter-spacing: 0.09em;
-                text-transform: uppercase;
-            }
 
             @media (max-width: 560px) {
                 .hero {
@@ -211,10 +175,6 @@
                         rgba(10, 9, 8, 0.16) 45%,
                         rgba(10, 9, 8, 0.08)
                     );
-                }
-                .pill {
-                    font-size: 11px;
-                    padding: 8px 11px;
                 }
                 .topbar {
                     align-items: flex-start;
@@ -243,11 +203,9 @@
                 <div class="mark" aria-label="Brand mark">
                     <span></span><span></span><span></span>
                 </div>
-                <div class="pill">A little motion goes a long way</div>
             </header>
 
             <section class="content">
-                <div class="eyebrow">Canvas experiment · 02</div>
                 <h1>Make pixels <em>move.</em></h1>
                 <p>
                     A living field of smooth, drifting noise. Each pixel carries
@@ -263,7 +221,6 @@
                     >
                 </div>
             </section>
-            <div class="hint">Animated noise field</div>
         </main>
 
         <script>
