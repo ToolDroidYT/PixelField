@@ -22,7 +22,7 @@ const TIME_STEP = 0.00136;
  *
  * Everything that must not trigger a re-render (time, cells, dpr, RAF handle,
  * resolved config) lives in refs; `running`, `seed` and `config` are plain
- * props. Config changes are picked up live: colour and behaviour tweaks
+ * props. Config changes are picked up live: color and behavior tweaks
  * repaint on the next frame (or immediately while paused), and grid-affecting
  * values rebuild the cells.
  *

@@ -10,7 +10,7 @@ export type PixelFieldProps = {
   /** Bump to regenerate the pattern with a new seed. Controlled by the parent. */
   seed: number;
   /**
-   * Optional overrides for the field's look and behaviour. Every key is
+   * Optional overrides for the field's look and behavior. Every key is
    * optional and merged over the defaults, so partial configs are safe and
    * omitting it entirely reproduces the stock field.
    *
