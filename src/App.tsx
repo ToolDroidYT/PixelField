@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react'
-import PixelField from './components/PixelField'
+import { useEffect, useState } from 'react';
+import PixelField from './components/PixelField';
 
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 const BUTTON =
-  'inline-flex min-h-[46px] cursor-pointer items-center justify-center rounded-[10px] border px-[17px] text-sm font-[550]'
-const BUTTON_SECONDARY = `${BUTTON} border-white/[0.17] bg-white/[0.055] text-[#eee9e4]`
-const BUTTON_PRIMARY = `${BUTTON} border-[#e8e2dc] bg-[#e8e2dc] text-[#181513]`
+  'inline-flex min-h-[46px] cursor-pointer items-center justify-center rounded-[10px] border px-[17px] text-sm font-[550]';
+const BUTTON_SECONDARY = `${BUTTON} border-white/[0.17] bg-white/[0.055] text-[#eee9e4]`;
+const BUTTON_PRIMARY = `${BUTTON} border-[#e8e2dc] bg-[#e8e2dc] text-[#181513]`;
 
 const VIGNETTE =
-  'pointer-events-none absolute inset-0 z-[-1] bg-[linear-gradient(0deg,rgba(10,9,8,0.18),rgba(10,9,8,0.04)_48%,rgba(10,9,8,0.12))] max-[560px]:bg-[linear-gradient(180deg,rgba(10,9,8,0.1),rgba(10,9,8,0.16)_45%,rgba(10,9,8,0.08))]'
+  'pointer-events-none absolute inset-0 z-[-1] bg-[linear-gradient(0deg,rgba(10,9,8,0.18),rgba(10,9,8,0.04)_48%,rgba(10,9,8,0.12))] max-[560px]:bg-[linear-gradient(180deg,rgba(10,9,8,0.1),rgba(10,9,8,0.16)_45%,rgba(10,9,8,0.08))]';
 
 const MARK_BAR =
-  'block h-[9px] w-[26px] rounded-[2px] bg-[#f5f2ef] max-[560px]:w-5'
+  'block h-[9px] w-[26px] rounded-[2px] bg-[#f5f2ef] max-[560px]:w-5';
 
 function App() {
   // Mirrors the prototype: reduced motion decides the initial state and takes
@@ -20,26 +20,26 @@ function App() {
   // toggle wins.
   const [running, setRunning] = useState(
     () => !window.matchMedia(REDUCED_MOTION_QUERY).matches,
-  )
-  const [seed, setSeed] = useState(1)
+  );
+  const [seed, setSeed] = useState(1);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY)
-    const onChange = (event: MediaQueryListEvent) => setRunning(!event.matches)
-    mediaQuery.addEventListener('change', onChange)
-    return () => mediaQuery.removeEventListener('change', onChange)
-  }, [])
+    const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setRunning(!event.matches);
+    mediaQuery.addEventListener('change', onChange);
+    return () => mediaQuery.removeEventListener('change', onChange);
+  }, []);
 
   return (
-    <main className="relative isolate flex min-h-svh flex-col items-start justify-center overflow-hidden p-[clamp(28px,7vw,88px)] max-[560px]:justify-start max-[560px]:pt-[34svh]">
+    <main className='relative isolate flex min-h-svh flex-col items-start justify-center overflow-hidden p-[clamp(28px,7vw,88px)] max-[560px]:justify-start max-[560px]:pt-[34svh]'>
       <PixelField running={running} seed={seed} />
       {/* Vignette keeps the center text readable while pixels remain visible at the edges. */}
-      <div aria-hidden="true" className={VIGNETTE} />
+      <div aria-hidden='true' className={VIGNETTE} />
 
-      <header className="absolute top-[clamp(22px,4vw,42px)] right-[clamp(28px,7vw,88px)] left-[clamp(28px,7vw,88px)] flex items-center justify-between gap-4 max-[560px]:items-start">
+      <header className='absolute top-[clamp(22px,4vw,42px)] right-[clamp(28px,7vw,88px)] left-[clamp(28px,7vw,88px)] flex items-center justify-between gap-4 max-[560px]:items-start'>
         <div
-          className="flex -skew-y-[15deg] items-center gap-[5px]"
-          aria-label="Brand mark"
+          className='flex -skew-y-[15deg] items-center gap-[5px]'
+          aria-label='Brand mark'
         >
           <span className={MARK_BAR} />
           <span className={`${MARK_BAR} translate-y-[6px]`} />
@@ -47,27 +47,27 @@ function App() {
         </div>
       </header>
 
-      <section className="w-[min(760px,100%)] pt-[42px] max-[560px]:pt-0">
-        <h1 className="m-0 max-w-[820px] text-[clamp(48px,8.5vw,104px)] leading-[0.96] font-medium tracking-[-0.075em]">
+      <section className='w-[min(760px,100%)] pt-[42px] max-[560px]:pt-0'>
+        <h1 className='m-0 max-w-[820px] text-[clamp(48px,8.5vw,104px)] leading-[0.96] font-medium tracking-[-0.075em]'>
           Make pixels{' '}
-          <em className="mt-2 block font-serif text-[0.89em] font-normal tracking-[-0.06em] text-[#bcb4ac]">
+          <em className='mt-2 block font-serif text-[0.89em] font-normal tracking-[-0.06em] text-[#bcb4ac]'>
             move.
           </em>
         </h1>
-        <p className="mt-7 max-w-[510px] text-[clamp(17px,2vw,22px)] leading-[1.65] text-muted">
+        <p className='text-muted mt-7 max-w-[510px] text-[clamp(17px,2vw,22px)] leading-[1.65]'>
           A living field of smooth, drifting noise. Each pixel carries its own
           intensity, so the pattern feels layered instead of flat.
         </p>
-        <div className="mt-[34px] flex flex-wrap gap-3">
+        <div className='mt-[34px] flex flex-wrap gap-3'>
           <button
-            type="button"
+            type='button'
             className={BUTTON_PRIMARY}
             onClick={() => setRunning((value) => !value)}
           >
             {running ? 'Pause animation' : 'Resume animation'}
           </button>
           <button
-            type="button"
+            type='button'
             className={BUTTON_SECONDARY}
             onClick={() => setSeed((value) => value + 1)}
           >
@@ -76,7 +76,7 @@ function App() {
         </div>
       </section>
     </main>
-  )
+  );
 }
 
-export default App
+export default App;
