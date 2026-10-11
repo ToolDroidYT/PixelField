@@ -24,7 +24,7 @@ const PIXEL_FIELD_CONFIG: PixelFieldConfig = {
 
   // Color: warm charcoal → off-white ramp, matching the page's ink/paper tones.
   colorBase: [54, 51, 48],
-  colorRange: [132, 124, 116],
+  colorRange: [132 + 50, 124 + 50, 116 + 50],
   glintColor: [235, 225, 213],
 };
 
