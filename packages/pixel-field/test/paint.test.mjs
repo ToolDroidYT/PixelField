@@ -4,6 +4,7 @@ import {
   buildFieldCells,
   createFieldRenderBuffers,
   DEFAULT_PIXEL_FIELD_CONFIG,
+  isGridGeometryEqual,
   paintField,
   resolvePixelFieldConfig,
 } from '../dist/index.js';
@@ -262,4 +263,20 @@ test('defaults are frozen and shared, and never mutated by resolution', () => {
   assert.equal(second.spacing, 20);
   assert.equal(DEFAULT_PIXEL_FIELD_CONFIG.spacing, 16);
   assert.ok(Object.isFrozen(second));
+});
+
+test('isGridGeometryEqual detects when resizes preserve grid geometry', () => {
+  const cfg = resolvePixelFieldConfig({ spacing: 16 });
+  const cells = buildFieldCells(1205, 805, cfg, 18);
+
+  // Small dimensional changes that do not cross the spacing boundary retain the same grid
+  assert.ok(isGridGeometryEqual(cells, 1205, 805, cfg));
+  assert.ok(isGridGeometryEqual(cells, 1208, 805, cfg));
+  assert.ok(isGridGeometryEqual(cells, 1205, 809, cfg));
+  assert.ok(isGridGeometryEqual(cells, 1210, 810, cfg));
+
+  // Changes crossing a row or column boundary report false so the grid is rebuilt
+  assert.equal(isGridGeometryEqual(cells, 1220, 805, cfg), false);
+  assert.equal(isGridGeometryEqual(cells, 1205, 820, cfg), false);
+  assert.equal(isGridGeometryEqual(cells, 400, 300, cfg), false);
 });

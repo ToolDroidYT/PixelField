@@ -47,28 +47,29 @@ export type FieldCells = {
  * output whenever `maxCells` has not been exceeded, because a scale of `1`
  * multiplies by exactly `1`.
  */
-export function buildFieldCells(
+/** Cells a canvas of this size generates at a given pitch, padding included. */
+function gridCount(width: number, height: number, spacing: number): number {
+  return (Math.ceil(width / spacing) + 3) * (Math.ceil(height / spacing) + 3);
+}
+
+export type GridGeometry = {
+  cols: number;
+  rows: number;
+  count: number;
+  spacing: number;
+  scale: number;
+};
+
+export function computeGridGeometry(
   width: number,
   height: number,
   config: ResolvedPixelFieldConfig,
-  seed: number,
-): FieldCells {
-  // Guard against a degenerate pitch, which would loop forever.
+): GridGeometry {
   const pitch = Math.max(1, config.spacing);
 
-  // Browser zoom and maximized windows can push the container into the tens of
-  // thousands of cells, where a single frame costs tens of milliseconds. When
-  // that happens, coarsen the pitch until the grid fits the cap: `scale > 1`
-  // grows spacing, square size, and (for the caller) the noise scale together,
-  // which keeps the pattern the same size *on screen* — it just covers a
-  // larger slice of the page. Below the cap, `scale` is exactly 1 and nothing
-  // about the output changes.
   let scale = 1;
   const maxCells = config.maxCells;
   if (maxCells > 0 && gridCount(width, height, pitch) > maxCells) {
-    // Binary search for the smallest pitch that fits the cap. A plain
-    // fixed-point correction stalls here: the count only steps down in whole
-    // columns and rows, so the last few cells need a discrete jump.
     let lo = 1;
     let hi = 2;
     let guard = 0;
@@ -88,6 +89,44 @@ export function buildFieldCells(
   const cols = Math.ceil(width / spacing) + 2;
   const rows = Math.ceil(height / spacing) + 2;
   const count = (cols + 1) * (rows + 1);
+
+  return { cols, rows, count, spacing, scale };
+}
+
+export function isGridGeometryEqual(
+  cells: FieldCells,
+  width: number,
+  height: number,
+  config: ResolvedPixelFieldConfig,
+): boolean {
+  const geom = computeGridGeometry(width, height, config);
+  return (
+    cells.cols === geom.cols &&
+    cells.rows === geom.rows &&
+    cells.scale === geom.scale &&
+    cells.spacing === geom.spacing
+  );
+}
+
+/**
+ * Builds the grid for the current canvas size, config, and seed.
+ *
+ * `cols`/`rows` keep the original padded extents, so the pattern a given
+ * (size, seed) pair produces is unchanged from earlier releases — as is the
+ * output whenever `maxCells` has not been exceeded, because a scale of `1`
+ * multiplies by exactly `1`.
+ */
+export function buildFieldCells(
+  width: number,
+  height: number,
+  config: ResolvedPixelFieldConfig,
+  seed: number,
+): FieldCells {
+  const { cols, rows, count, spacing, scale } = computeGridGeometry(
+    width,
+    height,
+    config,
+  );
 
   const x = new Float64Array(count);
   const y = new Float64Array(count);
@@ -124,9 +163,4 @@ export function buildFieldCells(
     size,
     n,
   };
-}
-
-/** Cells a canvas of this size generates at a given pitch, padding included. */
-function gridCount(width: number, height: number, spacing: number): number {
-  return (Math.ceil(width / spacing) + 3) * (Math.ceil(height / spacing) + 3);
 }

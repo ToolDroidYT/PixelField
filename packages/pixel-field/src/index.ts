@@ -1,7 +1,11 @@
 export { PixelField, type PixelFieldProps } from './components/PixelField';
 export { usePixelField } from './hooks/usePixelField';
 
-export { buildFieldCells, type FieldCells } from './lib/cells';
+export {
+  buildFieldCells,
+  isGridGeometryEqual,
+  type FieldCells,
+} from './lib/cells';
 export {
   DEFAULT_PIXEL_FIELD_CONFIG,
   pixelFieldConfigEquals,
