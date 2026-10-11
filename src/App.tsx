@@ -119,6 +119,7 @@ function App() {
               <Minus className={ICON} aria-hidden='true' />
             </button>
             <input
+              id='seed'
               type='number'
               value={seed}
               aria-label='Seed value'
