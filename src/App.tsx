@@ -95,7 +95,7 @@ function App() {
             className={BUTTON_SECONDARY}
             onClick={() => setSeed((value) => value + 1)}
           >
-            Change pattern (seed: {seed})
+            Change pattern
           </button>
         </div>
       </section>
