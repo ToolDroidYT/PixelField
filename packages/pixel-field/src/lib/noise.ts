@@ -50,6 +50,12 @@ export function valueNoise(x: number, y: number, seed: number): number {
 /**
  * Fractal Brownian motion combines broad blobs with finer details.
  * `octaves` defaults to the prototype's 4; lower is cheaper and softer.
+ *
+ * The octave progression stays as scalar locals rather than being read out of
+ * a precomputed table: `bench/fbm-cost.mjs` measures that variant at roughly
+ * 1.5x the cost of this one, because three `Float64Array` loads per octave are
+ * more expensive than three register-resident scalars. The per-call setup that
+ * looks redundant is not — see the benchmark before changing it again.
  */
 export function fbm(x: number, y: number, seed: number, octaves = 4): number {
   let value = 0;
