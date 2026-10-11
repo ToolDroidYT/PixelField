@@ -109,7 +109,7 @@ function App() {
             role='group'
             aria-label='Pattern seed'
           >
-            <span className='px-2 text-muted'>Seed</span>
+            <span className='text-muted px-2'>Seed</span>
             <button
               type='button'
               className={ICON_BUTTON}
