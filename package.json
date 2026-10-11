@@ -9,8 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "build:packages": "pnpm --filter @tooldroid/pixel-field build",
-    "publish": "pnpm run build:packages && pnpm --filter @tooldroid/pixel-field publish --access public",
-    "publish:dry-run": "pnpm run build:packages && pnpm --filter @tooldroid/pixel-field publish --access public --dry-run",
+    "publish": "pnpm --filter @tooldroid/pixel-field publish --access public",
+    "publish:dry-run": "pnpm --filter @tooldroid/pixel-field publish --access public --dry-run",
     "typecheck": "tsc -b",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

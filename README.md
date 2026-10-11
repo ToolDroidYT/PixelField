@@ -27,18 +27,18 @@ hot module replacement works across the package boundary.
 
 ## Scripts
 
-| Script                     | Description                                                 |
-| -------------------------- | ----------------------------------------------------------- |
-| `pnpm dev`                 | Start the demo app with HMR.                                |
-| `pnpm build`               | Typecheck and build the demo app for production.            |
-| `pnpm build:packages`      | Build the library into `packages/pixel-field/dist`.         |
-| `pnpm run publish`         | Build the library and publish it to npm.                    |
-| `pnpm run publish:dry-run` | Build and print what would be published, without uploading. |
-| `pnpm typecheck`           | Typecheck every project in the workspace.                   |
-| `pnpm lint`                | Run Oxlint.                                                 |
-| `pnpm format`              | Format the whole workspace with Prettier.                   |
-| `pnpm format:check`        | Check formatting without writing.                           |
-| `pnpm preview`             | Preview the production build.                               |
+| Script                     | Description                                         |
+| -------------------------- | --------------------------------------------------- |
+| `pnpm dev`                 | Start the demo app with HMR.                        |
+| `pnpm build`               | Typecheck and build the demo app for production.    |
+| `pnpm build:packages`      | Build the library into `packages/pixel-field/dist`. |
+| `pnpm run publish`         | Publish the library to npm (builds first).          |
+| `pnpm run publish:dry-run` | Print what would be published, without uploading.   |
+| `pnpm typecheck`           | Typecheck every project in the workspace.           |
+| `pnpm lint`                | Run Oxlint.                                         |
+| `pnpm format`              | Format the whole workspace with Prettier.           |
+| `pnpm format:check`        | Check formatting without writing.                   |
+| `pnpm preview`             | Preview the production build.                       |
 
 ## @tooldroid/pixel-field
 
@@ -67,13 +67,14 @@ pnpm --filter @tooldroid/pixel-field version patch
 # see exactly what would go into the tarball
 pnpm run publish:dry-run
 
-# build + publish
+# publish
 pnpm run publish
 ```
 
-`publish` builds `dist`, then runs `pnpm publish` for
-`@tooldroid/pixel-field` with `--access public`. `prepublishOnly` in the
-package re-runs typecheck + build as a safety net, so `dist` is never stale.
+`publish` is a thin alias for
+`pnpm --filter @tooldroid/pixel-field publish --access public`. The package's
+`prepublishOnly` hook typechecks and builds `dist` first, so a stale or missing
+`dist` can never be uploaded.
 
 Notes:
 
