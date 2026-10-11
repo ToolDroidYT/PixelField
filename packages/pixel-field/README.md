@@ -1,226 +1,217 @@
 # @tooldroid/pixel-field
 
-Full-bleed animated pixel noise field for React, rendered on a `<canvas>`.
+An animated pixel-noise background for React, rendered with a regular `<canvas>`. It creates soft, drifting fields of glowing squares with varying brightness and opacity, giving hero sections, landing pages, and app backgrounds a sense of depth.
 
-A single shared noise field is sampled at every cell of a fixed grid. Domain
-warping bends it into soft, drifting continents, and each cell's opacity and
-luminance encode the local field intensity — so the pattern reads as layered
-depth rather than flat twinkling. Pure fBm value noise, no shaders, no assets.
+The effect is generated at runtime using procedural noise — no images, shaders, or external assets required.
+
+## Features
+
+- **Animated, organic motion** with softly warped noise patterns
+- **Pixel-grid depth** from per-cell brightness, opacity, and subtle highlights
+- **Easy to customize** with colors, grid size, animation speed, and more
+- **Canvas-based rendering** with cell and frame-rate limits to help control workload
+- **Reduced-motion support** that respects the operating system preference by default
+- **TypeScript support** with exported prop and configuration types
+
+## Requirements
+
+- React 18 or React 19
+- A React app using a modern JavaScript/TypeScript bundler
 
 ## Install
+
+Using pnpm:
+
+```sh
+pnpm add @tooldroid/pixel-field
+```
+
+Using npm:
 
 ```sh
 npm install @tooldroid/pixel-field
 ```
 
-Or with the package manager of your choice:
+## Quick start
 
-```sh
-pnpm add @tooldroid/pixel-field
-yarn add @tooldroid/pixel-field
-bun add @tooldroid/pixel-field
-```
-
-React 18 or 19 is required as a peer dependency. The package ships ESM
-(`dist/index.js`), CJS (`dist/index.cjs`) and matching type declarations, with
-`sideEffects: false` so unused exports tree-shake away.
-
-## Usage
+Import `PixelField` and place it inside a container that defines the area for the background.
 
 ```tsx
 import { PixelField } from '@tooldroid/pixel-field';
 
 export function Hero() {
   return (
-    <section className='relative isolate'>
+    <section className="hero">
       <PixelField running seed={1} />
-      {/* content */}
+
+      <div className="hero__content">
+        <h1>Your next idea, in motion.</h1>
+        <p>A subtle animated pixel field for your interface.</p>
+      </div>
     </section>
   );
 }
 ```
 
-The component renders only a `<canvas>`, so place it inside a positioned
-container (`position: relative`, or any positioned ancestor) and layer your
-content over it — `isolate` keeps the field's negative `z-index` from escaping
-the section.
+The component renders a canvas positioned behind your content. Make the section a positioning context and isolate its stacking order:
 
-## Props
+```css
+.hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 24rem;
+  overflow: hidden;
+  display: grid;
+  place-content: center;
+}
 
-| Prop        | Type                     | Description                                                             |
-| ----------- | ------------------------ | ----------------------------------------------------------------------- |
-| `running`   | `boolean`                | Whether the field is animating. Controlled by the parent. **Required.** |
-| `seed`      | `number`                 | Bump to regenerate the pattern with a new seed. **Required.**           |
-| `config`    | `PixelFieldConfig`       | Optional overrides. Every key is optional and merged over the defaults. |
-| `className` | `string`                 | Extra class names merged onto the canvas (Tailwind-aware).              |
-| `ref`       | `Ref<HTMLCanvasElement>` | Forwards to the underlying `<canvas>`.                                  |
-
-## Styling the canvas
-
-The canvas carries its positioning as utility class names, merged with your
-`className` via `clsx` + `tailwind-merge`:
-
-```
-h-dvh w-full pointer-events-none absolute inset-0 z-[-1] opacity-[0.95]
+.hero__content {
+  position: relative;
+  z-index: 1;
+}
 ```
 
-Later classes win, so `<PixelField className='opacity-40 z-0' />` overrides the
-defaults without fighting them:
+> **Using Tailwind CSS?** The canvas includes utility classes for sizing and positioning. Make sure your Tailwind setup scans the package so those utilities are generated. See [Styling with Tailwind](#styling-with-tailwind).
+
+## Component props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `running` | `boolean` | Enables or pauses animation. Required. |
+| `seed` | `number` | Determines the generated pattern. Change it to generate a different field. Required. |
+| `config` | `PixelFieldConfig` | Optional animation, grid, color, and rendering settings. Unspecified values use defaults. |
+| `className` | `string` | Additional classes for the canvas. Merged with the built-in classes. |
+| `ref` | `Ref<HTMLCanvasElement>` | Ref to the underlying canvas element. |
+
+## Customize the look
+
+Pass a `config` object to adjust the field. You only need to specify the options you want to change.
 
 ```tsx
-<PixelField running seed={1} className='opacity-40 mix-blend-screen' />
-```
+import {
+  PixelField,
+  type PixelFieldConfig,
+} from '@tooldroid/pixel-field';
 
-Those classes only take effect if your CSS setup generates them:
-
-- **Tailwind v4** ignores `node_modules` during automatic source detection, so
-  opt the package in once:
-
-  ```css
-  @import 'tailwindcss';
-  @source '../node_modules/@tooldroid/pixel-field';
-  ```
-
-- **Tailwind v3** — add the package to your `content` globs:
-
-  ```js
-  content: [
-    './src/**/*.{js,ts,jsx,tsx}',
-    './node_modules/@tooldroid/pixel-field/dist/**/*.{js,cjs}',
-  ];
-  ```
-
-- **No Tailwind** — the built-in names are inert, so size and position the
-  canvas yourself with `className` (or your own CSS):
-
-  ```tsx
-  <PixelField
-    running
-    seed={1}
-    className='absolute inset-0 h-full w-full opacity-40'
-  />
-  ```
-
-## Config
-
-Passing no `config` (or any subset of keys) is always safe — omitted values fall
-back to the hand-tuned defaults.
-
-```tsx
-import { PixelField, type PixelFieldConfig } from '@tooldroid/pixel-field';
-
-const CONFIG: PixelFieldConfig = {
-  spacing: 24,
-  pixelSize: 16,
-  speed: 0.5,
-  colorBase: [20, 28, 44],
-  colorRange: [90, 130, 190],
+const fieldConfig: PixelFieldConfig = {
+  spacing: 22,
+  pixelSize: 14,
+  speed: 0.7,
+  colorBase: [12, 18, 32],
+  colorRange: [65, 120, 210],
   glint: false,
 };
 
-<PixelField running seed={1} config={CONFIG} />;
+export function Background() {
+  return <PixelField running seed={42} config={fieldConfig} />;
+}
 ```
 
-Config changes are picked up live: color and behavior tweaks repaint on the
-next frame (or immediately while paused), and grid-affecting values rebuild the
-cells. Configs are compared by value, so an inline object literal is fine.
+### Common configuration options
 
-Values are normalized on resolve: non-finite numbers fall back to the default,
-`octaves` is clamped to `[1, 8]` (an unbounded value is a hang — it is one fbm
-loop per octave per cell), blend weights and probabilities are clamped to
-`[0, 1]`, `maxCells` is floored at 0 (`0` disables the cap), `maxFps` is
-rounded and clamped to at most `240` (a value below `1` falls back to the
-default and warns outside production), a zero-width
-`contourWidth` is lifted off zero, and a degenerate threshold pair renders as a
-hard step instead of `NaN`. The resolved config is frozen, so nothing you pass
-can be mutated out from under another consumer.
+| Option | What it changes |
+| --- | --- |
+| `spacing` | Distance between pixel-cell origins. Larger values produce a more open grid. |
+| `pixelSize` | Nominal square size. Larger values create chunkier pixels. |
+| `sizeJitter` | Variation in cell size; set to `0` for uniform squares. |
+| `speed` | Overall animation speed. Use `0` to freeze the animation. |
+| `colorBase` | Base RGB color as `[red, green, blue]`, with each channel from `0` to `255`. |
+| `colorRange` | RGB color variation as `[red, green, blue]`. |
+| `glint` | Enables or disables subtle highlights on some bright cells. |
+| `maxFps` | Maximum canvas repaint rate. The default is `30`. |
+| `maxCells` | Maximum number of cells to render. The default is `20_000`. Set to `0` to remove the cap. |
+| `respectReducedMotion` | Automatically pause animation when the OS requests reduced motion. Defaults to `true`. |
 
-See the doc comments in [`src/lib/pixelFieldConfig.ts`](./src/lib/pixelFieldConfig.ts)
-for every available key, and `DEFAULT_PIXEL_FIELD_CONFIG` for the baseline
-values.
+See the exported `PixelFieldConfig` type in your editor for all available options, including noise, contour, brightness, alpha, and device-pixel-ratio controls. Values that need bounds are normalized by the package.
 
-Declaring your config at module scope is still nicest — it keeps one object
-identity for the whole session — but an inline literal works too.
+## Styling with Tailwind
 
-## Performance
+The canvas uses these default utility classes:
 
-The frame loop is built to stay well inside a 60 fps budget at 1080p:
-
-- **Colors are quantized into a palette.** Brightness and alpha are bucketed
-  into 64 steps each (about one RGB level and 0.002 alpha of error), so a frame
-  needs a few hundred `rgba(...)` strings instead of one per cell, and the
-  strings are cached across frames.
-- **Draws are batched by palette key**, so each color is assigned once per
-  frame rather than thousands of times. On a non-overlapping grid this is a
-  pure reordering and is visually identical; grids where `pixelSize` exceeds
-  `spacing` fall back to generation order.
-- **Cells fully off-canvas are culled before any noise is sampled**, and the
-  detail layer is skipped wherever an upper bound proves the cell invisible.
-- **The loop idles**: it stops while the canvas is off-screen (Intersection
-  Observer), while the document is hidden, and whenever the clock is frozen
-  (`speed: 0`), and it never repaints an unchanged frame.
-- **Repaints are capped.** `maxFps` (30 by default) bounds how often the field
-  reaches the canvas, which suits a slow drift and roughly halves the paint
-  work against a 60 Hz display. The clock still advances on every tick, so the
-  motion is the same speed at any cap — 240 is effectively uncapped.
-- **The grid is capped.** `maxCells` (20,000 by default) bounds the number of
-  cells, which is what makes cost track viewport _area_. Past the cap the pitch,
-  square size, and noise scale are coarsened by the same factor, so the pattern
-  keeps its on-screen size and just covers a larger slice of the page — a
-  7680x4320 canvas (25 % browser zoom) costs the same as a 4K one instead of
-  nine times as much. Set `maxCells: 0` for an unbounded grid.
-- **Resize storms settle instead of queueing.** Browser zoom changes the element
-  size and `devicePixelRatio` at once, and every step of a Ctrl+scroll does it
-  again. A lone notification still measures and repaints immediately, but once
-  they arrive in a burst each one only pushes a single trailing sync out (and
-  cancels the older pending one), and the loop holds its frames while the
-  browser stretches the existing bitmap for free. Measured on a 20-step
-  zoom-out over 1.7 s: 20 syncs and 3.9 s of blocked main thread before, 3
-  syncs and 57 ms after.
-
-`pnpm bench` (at the repo root) prints per-frame cost against the original
-per-cell renderer for three viewports.
-
-## Exports
-
-- `PixelField` — the component.
-- `usePixelField(running, seed, config?)` — the hook, if you want to drive your
-  own `<canvas>`.
-- `DEFAULT_PIXEL_FIELD_CONFIG`, `resolvePixelFieldConfig`,
-  `pixelFieldLayoutKey`, `pixelFieldConfigEquals` — config helpers.
-- `buildFieldCells`, `paintField`, `createFieldRenderBuffers`,
-  `isGridGeometryEqual` — the render pipeline the hook runs, exposed so it can
-  be driven (or benchmarked) outside React.
-- `PixelFieldConfig`, `ResolvedPixelFieldConfig`, `PixelFieldProps`, `RGB`,
-  `Range`, `FieldCells`, `FieldView`, `FieldRenderBuffers` — types.
-- `random01`, `hash`, `mix`, `fade`, `clamp01`, `valueNoise`, `fbm`,
-  `smoothstep` — the pure noise math.
-
-## Reduced motion
-
-The field honors the OS preference automatically: while `prefers-reduced-motion`
-is set, the loop stops and the last frame stays on screen. Set
-`config.respectReducedMotion = false` to animate regardless. `running` is
-unchanged, so gating on both (as the demo does) is harmless.
-
-## Development
-
-This package lives in the `PixelGrid-Noise` monorepo.
-
-```sh
-pnpm --filter @tooldroid/pixel-field build       # emit dist/ (ESM + CJS + .d.ts)
-pnpm --filter @tooldroid/pixel-field dev         # rebuild on change
-pnpm --filter @tooldroid/pixel-field typecheck
-pnpm --filter @tooldroid/pixel-field test        # build, then run node --test
-pnpm --filter @tooldroid/pixel-field bench       # per-frame cost, old vs new
-pnpm --filter @tooldroid/pixel-field bench:noise # fBm octave-loop bake-off
+```text
+h-dvh w-full pointer-events-none absolute inset-0 z-[-1] opacity-[0.95]
 ```
 
-The tests rebuild `dist/` first and then check the batched renderer against a
-verbatim copy of the original per-cell renderer: the same cells must be drawn,
-in the same places, with the same colors within palette quantization — plus
-config normalization and noise edge cases. Treat a red equivalence test as a
-visual regression, not a tolerance to widen.
+Add your own classes to override defaults:
 
-The demo app at the repo root consumes this package straight from source via a
-Vite alias, so `pnpm dev` at the root needs no build step.
+```tsx
+<PixelField
+  running
+  seed={1}
+  className="opacity-40 mix-blend-screen"
+/>
+```
+
+The classes must exist in your generated CSS for Tailwind to apply them.
+
+**Tailwind CSS v4** — explicitly include the package in source detection if it is not scanned automatically. Adjust the relative path for your project's CSS file:
+
+```css
+@import "tailwindcss";
+@source "../node_modules/@tooldroid/pixel-field";
+```
+
+**Tailwind CSS v3** — add the package's built files to your `content` configuration:
+
+```js
+content: [
+  './src/**/*.{js,ts,jsx,tsx}',
+  './node_modules/@tooldroid/pixel-field/dist/**/*.{js,cjs}',
+],
+```
+
+**Not using Tailwind?** Utility class names will not produce styles unless you provide matching CSS. You can still use your own classes:
+
+```tsx
+<PixelField
+  running
+  seed={1}
+  className="pixel-field-background"
+/>
+```
+
+For example:
+
+```css
+.pixel-field-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.4;
+  pointer-events: none;
+}
+```
+
+## Animation controls
+
+Use `running` to control playback from React:
+
+```tsx
+<PixelField running={isPlaying} seed={1} />
+```
+
+Change `seed` when you want a different pattern. Config changes are applied while the component is mounted, so you can connect options to state or controls.
+
+The field automatically pauses when the page is hidden or the canvas is off-screen. It also respects the operating system's reduced-motion preference by default. Set `respectReducedMotion: false` only when you explicitly want to override that behavior.
+
+## Performance tips
+
+- Start with the default `maxCells` and `maxFps` values. Raise them only if you need more detail or smoother updates.
+- Use a lower `speed` for a calm background; use `speed: 0` for a static field.
+- Keep the field decorative. Its canvas ignores pointer events by default, so it will not block links or buttons layered above it.
+- Put the component inside the section it should cover, rather than using a full-page canvas when only one section needs the effect.
+
+## Other exports
+
+Most apps only need `PixelField` and `PixelFieldConfig`. The package also exports:
+
+- `usePixelField(running, seed, config?)` — hook for integrating the field with your own canvas.
+- `DEFAULT_PIXEL_FIELD_CONFIG` and `resolvePixelFieldConfig` — default settings and configuration normalization.
+- `ResolvedPixelFieldConfig`, `PixelFieldProps`, `RGB`, and `Range` — TypeScript types.
+
+Additional low-level rendering and noise utilities are exported for advanced use cases.
+
+## License
+
+MIT
