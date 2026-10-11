@@ -1,6 +1,6 @@
 {
   "name": "@tooldroid/pixel-field",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Full-bleed animated pixel noise field for React, rendered on a canvas.",
   "type": "module",
   "license": "MIT",
