@@ -16,6 +16,11 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Workspace packages resolve to source, mirroring `vite.config.ts`. */
+    "paths": {
+      "@tooldroid/pixel-field": ["./packages/pixel-field/src/index.ts"]
+    },
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,

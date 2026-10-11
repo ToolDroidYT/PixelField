@@ -1,9 +1,6 @@
 import { usePixelField } from '../hooks/usePixelField';
 import type { PixelFieldConfig } from '../lib/pixelFieldConfig';
 
-export type { PixelFieldConfig };
-export type { RGB, Range } from '../lib/pixelFieldConfig';
-
 export type PixelFieldProps = {
   /** Whether the field is animating. Controlled by the parent. */
   running: boolean;
@@ -37,7 +34,7 @@ export type PixelFieldProps = {
  * Full-bleed animated noise field. Renders only a canvas; all animation
  * lifecycle (resize, RAF, visibility, cleanup) lives in `usePixelField`.
  */
-export default function PixelField({
+export function PixelField({
   running,
   seed,
   config,

@@ -1,0 +1,51 @@
+{
+  "name": "@tooldroid/pixel-field",
+  "version": "0.1.0",
+  "description": "Full-bleed animated pixel noise field for React, rendered on a canvas.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "react",
+    "canvas",
+    "noise",
+    "animation",
+    "pixel",
+    "background",
+    "fbm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tooldroid/PixelField.git",
+    "directory": "packages/pixel-field"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "react": "^19.2.8",
+    "tsup": "^8.5.0",
+    "typescript": "~6.0.2"
+  }
+}

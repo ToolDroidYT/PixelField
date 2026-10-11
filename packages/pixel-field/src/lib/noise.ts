@@ -1,5 +1,5 @@
 /**
- * Pure noise math, ported 1:1 from prototype/animated-pixel-grid.html.
+ * Pure noise math, ported 1:1 from the original animated pixel grid prototype.
  * No React, no DOM, no module-level mutable state — `seed` is always a parameter.
  */
 

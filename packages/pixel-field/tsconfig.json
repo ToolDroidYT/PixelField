@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+
+    /* tsup's dts step injects a `baseUrl`, which TS 6.0 deprecates. */
+    "ignoreDeprecations": "6.0",
+
+    /* Emitting is tsup's job; this config is for editors and `typecheck`. */
+    "noEmit": true,
+
+    /* Isolation */
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "erasableSyntaxOnly": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}

@@ -8,11 +8,14 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "build:packages": "pnpm --filter @tooldroid/pixel-field build",
+    "typecheck": "tsc -b",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@tooldroid/pixel-field": "workspace:*",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3"
