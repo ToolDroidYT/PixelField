@@ -10,10 +10,20 @@ depth rather than flat twinkling. Pure fBm value noise, no shaders, no assets.
 ## Install
 
 ```sh
-pnpm add @tooldroid/pixel-field
+npm install @tooldroid/pixel-field
 ```
 
-React 18 or 19 is required as a peer dependency.
+Or with the package manager of your choice:
+
+```sh
+pnpm add @tooldroid/pixel-field
+yarn add @tooldroid/pixel-field
+bun add @tooldroid/pixel-field
+```
+
+React 18 or 19 is required as a peer dependency. The package ships ESM
+(`dist/index.js`), CJS (`dist/index.cjs`) and matching type declarations, with
+`sideEffects: false` so unused exports tree-shake away.
 
 ## Usage
 
@@ -30,31 +40,66 @@ export function Hero() {
 }
 ```
 
-The component renders only a `<canvas>` sized to its nearest positioned
-ancestor, so place it inside a `position: relative` container.
+The component renders only a `<canvas>`, so place it inside a positioned
+container (`position: relative`, or any positioned ancestor) and layer your
+content over it — `isolate` keeps the field's negative `z-index` from escaping
+the section.
 
 ## Props
 
-| Prop        | Type               | Description                                                               |
-| ----------- | ------------------ | ------------------------------------------------------------------------- |
-| `running`   | `boolean`          | Whether the field is animating. Controlled by the parent.                 |
-| `seed`      | `number`           | Bump to regenerate the pattern with a new seed. Controlled by the parent. |
-| `config`    | `PixelFieldConfig` | Optional overrides. Every key is optional and merged over the defaults.   |
-| `className` | `string`           | Extra class names merged onto the canvas element.                         |
-| `style`     | `CSSProperties`    | Merged over the built-in positioning styles (layer, opacity, blend …).    |
+| Prop        | Type                     | Description                                                             |
+| ----------- | ------------------------ | ----------------------------------------------------------------------- |
+| `running`   | `boolean`                | Whether the field is animating. Controlled by the parent. **Required.** |
+| `seed`      | `number`                 | Bump to regenerate the pattern with a new seed. **Required.**           |
+| `config`    | `PixelFieldConfig`       | Optional overrides. Every key is optional and merged over the defaults. |
+| `className` | `string`                 | Extra class names merged onto the canvas (Tailwind-aware).              |
+| `ref`       | `Ref<HTMLCanvasElement>` | Forwards to the underlying `<canvas>`.                                  |
 
-The canvas carries its own positioning inline (`absolute`, `inset: 0`,
-`z-index: -1`, `width/height: 100%`, `pointer-events: none`, `opacity: 0.95`),
-so it works without Tailwind or any other utility CSS. Override it with `style`
-or `className`:
+## Styling the canvas
+
+The canvas carries its positioning as utility class names, merged with your
+`className` via `clsx` + `tailwind-merge`:
+
+```
+h-dvh w-full pointer-events-none absolute inset-0 z-[-1] opacity-[0.95]
+```
+
+Later classes win, so `<PixelField className='opacity-40 z-0' />` overrides the
+defaults without fighting them:
 
 ```tsx
-<PixelField
-  running
-  seed={1}
-  style={{ zIndex: 0, opacity: 0.4, mixBlendMode: 'screen' }}
-/>
+<PixelField running seed={1} className='opacity-40 mix-blend-screen' />
 ```
+
+Those classes only take effect if your CSS setup generates them:
+
+- **Tailwind v4** ignores `node_modules` during automatic source detection, so
+  opt the package in once:
+
+  ```css
+  @import 'tailwindcss';
+  @source '../node_modules/@tooldroid/pixel-field';
+  ```
+
+- **Tailwind v3** — add the package to your `content` globs:
+
+  ```js
+  content: [
+    './src/**/*.{js,ts,jsx,tsx}',
+    './node_modules/@tooldroid/pixel-field/dist/**/*.{js,cjs}',
+  ];
+  ```
+
+- **No Tailwind** — the built-in names are inert, so size and position the
+  canvas yourself with `className` (or your own CSS):
+
+  ```tsx
+  <PixelField
+    running
+    seed={1}
+    className='absolute inset-0 h-full w-full opacity-40'
+  />
+  ```
 
 ## Config
 
@@ -133,8 +178,8 @@ The frame loop is built to stay well inside a 60 fps budget at 1080p:
   zoom-out over 1.7 s: 20 syncs and 3.9 s of blocked main thread before, 3
   syncs and 57 ms after.
 
-`pnpm bench` prints per-frame cost against the original per-cell renderer for
-three viewports.
+`pnpm bench` (at the repo root) prints per-frame cost against the original
+per-cell renderer for three viewports.
 
 ## Exports
 
@@ -143,9 +188,9 @@ three viewports.
   own `<canvas>`.
 - `DEFAULT_PIXEL_FIELD_CONFIG`, `resolvePixelFieldConfig`,
   `pixelFieldLayoutKey`, `pixelFieldConfigEquals` — config helpers.
-- `buildFieldCells`, `paintField`, `createFieldRenderBuffers` — the render
-  pipeline the hook runs, exposed so it can be driven (or benchmarked) outside
-  React.
+- `buildFieldCells`, `paintField`, `createFieldRenderBuffers`,
+  `isGridGeometryEqual` — the render pipeline the hook runs, exposed so it can
+  be driven (or benchmarked) outside React.
 - `PixelFieldConfig`, `ResolvedPixelFieldConfig`, `PixelFieldProps`, `RGB`,
   `Range`, `FieldCells`, `FieldView`, `FieldRenderBuffers` — types.
 - `random01`, `hash`, `mix`, `fade`, `clamp01`, `valueNoise`, `fbm`,
@@ -163,11 +208,12 @@ unchanged, so gating on both (as the demo does) is harmless.
 This package lives in the `PixelGrid-Noise` monorepo.
 
 ```sh
-pnpm --filter @tooldroid/pixel-field build    # emit dist/ (ESM + CJS + .d.ts)
-pnpm --filter @tooldroid/pixel-field dev      # rebuild on change
+pnpm --filter @tooldroid/pixel-field build       # emit dist/ (ESM + CJS + .d.ts)
+pnpm --filter @tooldroid/pixel-field dev         # rebuild on change
 pnpm --filter @tooldroid/pixel-field typecheck
-pnpm --filter @tooldroid/pixel-field test     # build, then run node --test
-pnpm --filter @tooldroid/pixel-field bench    # per-frame cost, old vs new
+pnpm --filter @tooldroid/pixel-field test        # build, then run node --test
+pnpm --filter @tooldroid/pixel-field bench       # per-frame cost, old vs new
+pnpm --filter @tooldroid/pixel-field bench:noise # fBm octave-loop bake-off
 ```
 
 The tests rebuild `dist/` first and then check the batched renderer against a
