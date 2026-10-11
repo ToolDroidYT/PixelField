@@ -1,6 +1,7 @@
-import { forwardRef, useCallback, type CSSProperties } from 'react';
+import { forwardRef, useCallback } from 'react';
 import { usePixelField } from '../hooks/usePixelField';
 import type { PixelFieldConfig } from '../lib/pixelFieldConfig';
+import { cn } from '../lib/utils';
 
 export type PixelFieldProps = {
   /** Whether the field is animating. Controlled by the parent. */
@@ -29,26 +30,6 @@ export type PixelFieldProps = {
   config?: PixelFieldConfig;
   /** Extra class names merged onto the canvas element. */
   className?: string;
-  /**
-   * Overrides merged over the built-in positioning styles. Use this (or
-   * `className`) to change the layer, opacity, or blend of the field.
-   */
-  style?: CSSProperties;
-};
-
-/**
- * Defaults live inline rather than in utility classes so the component works
- * in any stack — a consumer without Tailwind would otherwise get a canvas with
- * no size and no positioning at all.
- */
-const BASE_STYLE: CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  zIndex: -1,
-  width: '100%',
-  height: '100%',
-  pointerEvents: 'none',
-  opacity: 0.95,
 };
 
 /**
@@ -58,10 +39,7 @@ const BASE_STYLE: CSSProperties = {
  * Forwards a ref to the underlying `<canvas>` for React 18 and 19 alike.
  */
 export const PixelField = forwardRef<HTMLCanvasElement, PixelFieldProps>(
-  function PixelField(
-    { running, seed, config, className = '', style },
-    forwardedRef,
-  ) {
+  function PixelField({ running, seed, config, className }, forwardedRef) {
     const canvasRef = usePixelField(running, seed, config);
 
     const setRef = useCallback(
@@ -77,8 +55,11 @@ export const PixelField = forwardRef<HTMLCanvasElement, PixelFieldProps>(
       <canvas
         ref={setRef}
         aria-hidden='true'
-        className={className}
-        style={style ? { ...BASE_STYLE, ...style } : BASE_STYLE}
+        className={cn(
+          'h-dvh w-full',
+          'pointer-events-none absolute inset-0 z-[-1] opacity-[0.95]',
+          className,
+        )}
       />
     );
   },
