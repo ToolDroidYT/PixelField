@@ -65,7 +65,12 @@ function App() {
 
   return (
     <main className='relative isolate flex min-h-svh flex-col items-start justify-center overflow-hidden p-[clamp(28px,7vw,88px)] max-[560px]:justify-start max-[560px]:pt-[34svh]'>
-      <PixelField running={running} seed={seed} config={PIXEL_FIELD_CONFIG} />
+      <PixelField
+        className='h-dvh opacity-100'
+        running={running}
+        seed={seed}
+        config={PIXEL_FIELD_CONFIG}
+      />
       {/* Vignette keeps the center text readable while pixels remain visible at the edges. */}
       <div aria-hidden='true' className={VIGNETTE} />
 
