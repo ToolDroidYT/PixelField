@@ -61,6 +61,12 @@
        *   frames=300       measured frames after `warmup`
        *   warmup=60        discarded frames (JIT, first-paint allocation)
        *   mode=animated    `animated` advances the clock, `static` freezes it
+       *   w, h, dpr        pin the canvas size and scale explicitly, so results
+       *                    do not depend on the browser window's own geometry
+       *   phase=full       `full` measures noise + keys + sort + draw;
+       *                    `draw` measures only the drawing half
+       *   strategy=rects   for `phase=draw`: `rects` (fillRect per cell) or
+       *                    `paths` (one path per palette bucket)
        *   seed=18
        *   label=text       echoed back in the result
        *   octaves, warpOctaves, renderScale, quality, spacing, maxCells,
@@ -68,13 +74,16 @@
        *
        * Serve the package root over HTTP (ES modules do not load from file://):
        *   python3 -m http.server 4173 --directory packages/pixel-field
+       *
+       * Loads `dist/bench.js` (the React-free entry) rather than `dist/index.js`,
+       * whose bare `react` import no plain page can resolve.
        */
       import {
         buildFieldCells,
         createFieldRenderBuffers,
         paintField,
         resolvePixelFieldConfig,
-      } from '../dist/index.js';
+      } from '../dist/bench.js';
 
       const params = new URLSearchParams(location.search);
       const number = (key) => {
@@ -89,6 +98,15 @@
       const MODE = params.get('mode') ?? 'animated';
       const SEED = number('seed') ?? 18;
       const LABEL = params.get('label') ?? (location.search.slice(1) || 'default');
+
+      /**
+       * `phase=full` (default) measures the whole pipeline. `phase=draw` runs
+       * `paintField` once to populate the buffers, then measures only the
+       * drawing half each frame — which is how `strategy` gets compared
+       * without the noise cost drowning it out.
+       */
+      const PHASE = params.get('phase') ?? 'full';
+      const STRATEGY = params.get('strategy') ?? 'rects';
 
       /** Base clock step per millisecond — mirrors `usePixelField`. */
       const TIME_STEP = 0.00136;
@@ -115,12 +133,20 @@
       const hud = document.getElementById('hud');
       const ctx = canvas.getContext('2d', { alpha: true });
 
-      const cssWidth = window.innerWidth;
-      const cssHeight = window.innerHeight;
+      // `w`/`h`/`dpr` pin the canvas explicitly, which makes runs reproducible
+      // regardless of the browser window's actual size or scale factor.
+      const cssWidth = number('w') ?? window.innerWidth;
+      const cssHeight = number('h') ?? window.innerHeight;
       const renderScale = config.renderScale ?? 1;
       const dpr =
+        number('dpr') ??
         Math.min(window.devicePixelRatio || 1, Math.max(1, config.maxDpr)) *
-        renderScale;
+          renderScale;
+
+      if (number('w') !== undefined || number('h') !== undefined) {
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+      }
 
       canvas.width = Math.max(1, Math.round(cssWidth * dpr));
       canvas.height = Math.max(1, Math.round(cssHeight * dpr));
@@ -145,6 +171,62 @@
         seed: SEED,
       };
 
+      /**
+       * Repaints from the prepared buffers, using either per-cell `fillRect`
+       * (what ships) or one path per palette bucket. Both walk the identical
+       * bucket list in the identical order, so the pixels drawn are the same.
+       */
+      const drawPrepared = () => {
+        const { counts, offsets, order, bodyUsed, glintUsed, palette } = buffers;
+        const usedSets = [
+          [bodyUsed, buffers.bodyUsedCount, false],
+          [glintUsed, buffers.glintUsedCount, true],
+        ];
+        ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+        for (const [used, usedCount, isGlint] of usedSets) {
+          for (let u = 0; u < usedCount; u++) {
+            const key = used[u];
+            const style = palette[key];
+            if (style === undefined) continue;
+            const end = offsets[key];
+            const start = end - counts[key];
+            ctx.fillStyle = style;
+
+            if (STRATEGY === 'paths') {
+              ctx.beginPath();
+              for (let j = start; j < end; j++) {
+                const i = order[j];
+                const size = cells.size[i];
+                ctx.rect(
+                  cells.x[i],
+                  cells.y[i],
+                  size,
+                  isGlint ? Math.max(1, size * config.glintHeightRatio) : size,
+                );
+              }
+              ctx.fill();
+            } else {
+              for (let j = start; j < end; j++) {
+                const i = order[j];
+                const size = cells.size[i];
+                ctx.fillRect(
+                  cells.x[i],
+                  cells.y[i],
+                  size,
+                  isGlint ? Math.max(1, size * config.glintHeightRatio) : size,
+                );
+              }
+            }
+          }
+        }
+      };
+
+      if (PHASE === 'draw') {
+        // Populate keys, buckets and palette once; only drawing repeats.
+        paintField(ctx, cells, buffers, view, config);
+      }
+
       const paintSamples = [];
       const rafSamples = [];
       let frame = 0;
@@ -158,6 +240,27 @@
         return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
       };
 
+      /**
+       * Display refresh period, measured with empty callbacks *before* the
+       * bench runs. Deriving it from the bench's own samples would be circular:
+       * once every frame is slow the median interval is the degraded one, and
+       * the drop rate then reads near zero.
+       */
+      const probeRefresh = async () => {
+        let previousRaf = 0;
+        let min = Infinity;
+        for (let i = 0; i < 45; i++) {
+          await new Promise((resolve) =>
+            requestAnimationFrame((now) => {
+              if (previousRaf) min = Math.min(min, now - previousRaf);
+              previousRaf = now;
+              resolve();
+            }),
+          );
+        }
+        return Number.isFinite(min) && min > 0 ? min : 16.67;
+      };
+
       const tick = (now) => {
         if (previous) rafSamples.push(now - previous);
         previous = now;
@@ -166,7 +269,8 @@
         view.time = time;
 
         const start = performance.now();
-        paintField(ctx, cells, buffers, view, config);
+        if (PHASE === 'draw') drawPrepared();
+        else paintField(ctx, cells, buffers, view, config);
         const paintMs = performance.now() - start;
 
         if (frame >= WARMUP) paintSamples.push(paintMs);
@@ -185,13 +289,16 @@
             if (buffers.bodyKeys[i] >= 0) drawn++;
           }
 
-          const over16 = rafSamples.filter((v) => v > 16.67).length;
-          const over33 = rafSamples.filter((v) => v > 33.34).length;
+          const period = refreshPeriod;
+          const dropped = rafSamples.filter((v) => v > period * 1.5).length;
+          const severe = rafSamples.filter((v) => v > period * 2.5).length;
           const result = {
             label: LABEL,
             viewport: `${cssWidth}x${cssHeight}`,
             dpr: Number(dpr.toFixed(3)),
             mode: MODE,
+            phase: PHASE,
+            strategy: STRATEGY,
             cells: cells.count,
             drawn,
             frames: paintSamples.length,
@@ -199,11 +306,16 @@
             paintP95: Number(percentile(paintSamples, 0.95).toFixed(3)),
             rafP50: Number(percentile(rafSamples, 0.5).toFixed(2)),
             rafP95: Number(percentile(rafSamples, 0.95).toFixed(2)),
-            over16Pct: Number(
-              ((100 * over16) / Math.max(1, rafSamples.length)).toFixed(1),
+            periodMs: Number(period.toFixed(2)),
+            // `period` is the observed refresh interval (16.7 ms at 60 Hz,
+            // 8.3 ms at 120 Hz), so the drop thresholds track the display
+            // instead of assuming one — a raw `>16.67` cut counts the normal
+            // quantized 16.70 ms interval as a missed frame.
+            droppedPct: Number(
+              ((100 * dropped) / Math.max(1, rafSamples.length)).toFixed(1),
             ),
-            over33Pct: Number(
-              ((100 * over33) / Math.max(1, rafSamples.length)).toFixed(1),
+            severePct: Number(
+              ((100 * severe) / Math.max(1, rafSamples.length)).toFixed(1),
             ),
             config: {
               octaves: config.octaves,
@@ -219,7 +331,7 @@
             `${LABEL} — done\n` +
             `paint p50 ${result.paintP50} ms  p95 ${result.paintP95} ms\n` +
             `raf p50 ${result.rafP50} ms  p95 ${result.rafP95} ms\n` +
-            `>16.67ms ${result.over16Pct}%  >33.34ms ${result.over33Pct}%\n` +
+            `dropped ${result.droppedPct}%  long ${result.severePct}%\n` +
             `${result.cells} cells, ${result.drawn} drawn`;
           return;
         }
@@ -227,7 +339,12 @@
         requestAnimationFrame(tick);
       };
 
-      requestAnimationFrame(tick);
+      let refreshPeriod = 16.67;
+
+      probeRefresh().then((period) => {
+        refreshPeriod = period;
+        requestAnimationFrame(tick);
+      });
     </script>
   </body>
 </html>

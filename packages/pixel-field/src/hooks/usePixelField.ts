@@ -22,6 +22,74 @@ import {
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
+// --- TEMP DIAGNOSTICS ---
+type DiagStats = {
+  sched: number;
+  syncs: number;
+  builds: number;
+  paints: number;
+  cellArrays: number;
+  cellBytes: number;
+  timers: number;
+  observers: number;
+  rafStarts: number;
+  schedImmediate: number;
+  schedArmed: number;
+  schedForced: number;
+  frameTicks: number;
+  frameBlocked: number;
+  backingSets: number;
+  backingBytes: number;
+  syncMs: number;
+  buildMs: number;
+  paintMs: number;
+  pRaf: number;
+  pSync: number;
+  pOther: number;
+};
+declare global {
+  interface Window {
+    __pfStats?: DiagStats;
+    __pfModuleCount?: number;
+    __pfSettle?: { t: number; f: number; same: number };
+  }
+}
+function newStats(): DiagStats {
+  return {
+    sched: 0,
+    syncs: 0,
+    builds: 0,
+    paints: 0,
+    cellArrays: 0,
+    cellBytes: 0,
+    timers: 0,
+    observers: 0,
+    rafStarts: 0,
+    schedImmediate: 0,
+    schedArmed: 0,
+    schedForced: 0,
+    frameTicks: 0,
+    frameBlocked: 0,
+    backingSets: 0,
+    backingBytes: 0,
+    syncMs: 0,
+    buildMs: 0,
+    paintMs: 0,
+    pRaf: 0,
+    pSync: 0,
+    pOther: 0,
+  };
+}
+const stats: DiagStats =
+  typeof window !== 'undefined'
+    ? (window.__pfStats ??= newStats())
+    : newStats();
+if (typeof window !== 'undefined') {
+  window.__pfModuleCount = (window.__pfModuleCount || 0) + 1;
+  window.__pfSettle = window.__pfSettle || { t: 0, f: 0, same: 0 };
+}
+// --- END TEMP DIAGNOSTICS ---
+
 /** Quiet period a burst of resize notifications must reach before syncing. */
 const SYNC_SETTLE_MS = 300;
 /** Hard cap on how long a gesture can keep deferring the sync. */
@@ -110,6 +178,8 @@ export function usePixelField(
   }, []);
 
   const paint = useCallback(() => {
+    stats.paints++;
+    const __t0 = performance.now();
     // Nothing to paint for a field nobody can see: a resize (or the trailing
     // sync of a resize burst) can leave the bitmap stale, and the loop's first
     // frame back in view repaints it from the same refs.
@@ -134,15 +204,27 @@ export function usePixelField(
     view.time = timeRef.current;
     view.seed = seedRef.current;
     paintField(ctx, cells, buffers, view, configRef.current);
+    stats.paintMs += performance.now() - __t0;
   }, [getCtx]);
 
   const buildCells = useCallback(() => {
+    stats.builds++;
+    const __t0 = performance.now();
+    const w = widthRef.current;
+    const h = heightRef.current;
+    const cfg = configRef.current;
+    const pitch = Math.max(1, cfg.spacing);
+    const est =
+      (Math.ceil(w / pitch) + 3) * (Math.ceil(h / pitch) + 3);
+    stats.cellArrays += 4;
+    stats.cellBytes += 4 * Math.min(est, cfg.maxCells > 0 ? cfg.maxCells : est) * 8;
     cellsRef.current = buildFieldCells(
       widthRef.current,
       heightRef.current,
       configRef.current,
       seedRef.current,
     );
+    stats.buildMs += performance.now() - __t0;
   }, []);
 
   /**
@@ -152,6 +234,8 @@ export function usePixelField(
    */
   const syncSize = useCallback(
     (width?: number, height?: number, forceCells = false) => {
+      stats.syncs++;
+      const __t0 = performance.now();
       const canvas = canvasRef.current;
       if (!canvas) return;
       const cfg = configRef.current;
@@ -178,6 +262,8 @@ export function usePixelField(
       // only touch it when the target differs — a DPR-only change then costs
       // one repaint instead of a rebuild.
       if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
+        stats.backingSets++;
+        stats.backingBytes += backingWidth * backingHeight * 4;
         canvas.width = backingWidth;
         canvas.height = backingHeight;
         getCtx()?.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -198,6 +284,7 @@ export function usePixelField(
       noiseScaleRef.current = baseNoiseScale * (cellsRef.current?.scale ?? 1);
 
       paint();
+      stats.syncMs += performance.now() - __t0;
     },
     [buildCells, getCtx, paint],
   );
@@ -208,6 +295,7 @@ export function usePixelField(
     if (pending) clearTimeout(pending.timer);
     syncPendingRef.current = null;
     settlingRef.current = false;
+    window.__pfSettle!.f++;
     syncLastRef.current = performance.now();
     syncSize();
   }, [syncSize]);
@@ -230,22 +318,27 @@ export function usePixelField(
    * it, so a long window drag still tracks rather than freezing.
    */
   const scheduleSync = useCallback(() => {
+    stats.sched++;
     const now = performance.now();
     const pending = syncPendingRef.current;
     // "Burst" is a notification arriving either while a trailing sync is still
     // armed or right on the heels of one that just ran — the pair of
     // notifications a single zoom step produces is exactly that shape.
     if (!pending && now - syncLastRef.current >= SYNC_SETTLE_MS) {
+      stats.schedImmediate++;
       runSync();
       return;
     }
     const since = pending?.since ?? syncLastRef.current;
     if (now - since >= SYNC_MAX_WAIT_MS) {
+      stats.schedForced++;
       runSync();
       return;
     }
     if (pending) clearTimeout(pending.timer);
+    stats.schedArmed++;
     settlingRef.current = true;
+    window.__pfSettle!.t++;
     syncPendingRef.current = {
       since,
       timer: window.setTimeout(runSync, SYNC_SETTLE_MS),
@@ -259,14 +352,17 @@ export function usePixelField(
     const canvas = canvasRef.current;
     if (!canvas) return;
     syncSize(undefined, undefined, true);
+    stats.observers++;
     const observer = new ResizeObserver(() => scheduleSync());
     observer.observe(canvas);
     return () => {
+      stats.observers--;
       observer.disconnect();
       const pending = syncPendingRef.current;
       if (pending) clearTimeout(pending.timer);
       syncPendingRef.current = null;
       settlingRef.current = false;
+      window.__pfSettle!.f++;
     };
   }, [scheduleSync, syncSize]);
 
@@ -335,6 +431,8 @@ export function usePixelField(
       const dt = last ? Math.min(now - last, cfg.maxFrameDelta) : 16;
       lastTimeRef.current = now;
       const next = timeRef.current + dt * TIME_STEP * cfg.speed;
+      stats.frameTicks++;
+      if (settlingRef.current) stats.frameBlocked++;
       // Hold the frame when the clock is frozen (`speed: 0` — it would repaint
       // an identical frame) or while a resize burst is in flight: the browser
       // is already stretching the last bitmap for free, and the trailing sync
@@ -382,6 +480,7 @@ export function usePixelField(
     }
 
     document.addEventListener('visibilitychange', onVisibilityChange);
+    stats.rafStarts++;
     rafRef.current = requestAnimationFrame(frame);
 
     return () => {

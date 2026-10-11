@@ -57,7 +57,11 @@ export function digestInts(values) {
  * change in cell geometry is a mismatch rather than a silent pass.
  */
 export function digestFloats(values) {
-  const bits = new Int32Array(values.buffer, values.byteOffset, values.length * 2);
+  const bits = new Int32Array(
+    values.buffer,
+    values.byteOffset,
+    values.length * 2,
+  );
   let h = 0x811c9dc5;
   for (let i = 0; i < bits.length; i++) h = mix(h, bits[i]);
   return finish(h ^ values.length);

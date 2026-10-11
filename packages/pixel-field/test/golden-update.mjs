@@ -20,6 +20,8 @@ const target = fileURLToPath(new URL('./golden.json', import.meta.url));
 writeFileSync(target, `${JSON.stringify(out, null, 2)}\n`);
 
 for (const [name, result] of Object.entries(out)) {
-  console.log(`${name.padEnd(20)} ${result.count.toString().padStart(6)} cells  ${result.body}/${result.glint}`);
+  console.log(
+    `${name.padEnd(20)} ${result.count.toString().padStart(6)} cells  ${result.body}/${result.glint}`,
+  );
 }
 console.log(`\nwrote ${target}`);

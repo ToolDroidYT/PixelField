@@ -38,6 +38,15 @@ export type FieldRenderBuffers = {
   offsets: Int32Array;
   /** Cell indices grouped by palette key. */
   order: Int32Array;
+  /**
+   * Palette buckets the previous frame actually painted, so the next frame
+   * clears only those counts instead of all 4,096 body buckets. Body and
+   * glint keys are disjoint ranges, so they keep separate lists.
+   */
+  bodyUsed: Int32Array;
+  bodyUsedCount: number;
+  glintUsed: Int32Array;
+  glintUsedCount: number;
   /** Lazily built `rgba(...)` strings, indexed by palette key. */
   palette: Array<string | undefined>;
   /** Inputs behind `palette`, so a color change invalidates it. */
@@ -55,6 +64,12 @@ export function createFieldRenderBuffers(cellCapacity = 0): FieldRenderBuffers {
     counts: new Int32Array(TOTAL_KEYS),
     offsets: new Int32Array(TOTAL_KEYS + 1),
     order: new Int32Array(cellCapacity),
+    // Sized for the whole key space, not the cell count: a frame can use at
+    // most one entry per bucket, so these never need to grow.
+    bodyUsed: new Int32Array(BODY_KEYS),
+    bodyUsedCount: 0,
+    glintUsed: new Int32Array(GLINT_KEYS),
+    glintUsedCount: 0,
     palette: new Array<string | undefined>(TOTAL_KEYS),
     paletteColorBase: null,
     paletteColorRange: null,
@@ -118,6 +133,9 @@ export function paintField(
   const warpTime = t * config.warpSpeed;
   const warpAmount = config.warpAmount;
   const useWarp = warpAmount !== 0;
+  // The warp only bends at low frequency, so it can afford fewer octaves than
+  // the broad/detail layers — two full fBm samples per cell otherwise.
+  const warpOctaves = config.warpOctaves;
   const detailScale = config.detailScale;
   const detailWeight = config.detailWeight;
   const broadWeight = 1 - detailWeight;
@@ -211,13 +229,13 @@ export function paintField(
         x + 5.7 + warpTime * 0.12,
         y - 2.4 - warpTime * 0.075,
         seed,
-        octaves,
+        warpOctaves,
       );
       const warpY = fbm(
         x - 8.1 - warpTime * 0.082,
         y + 11.3 + warpTime * 0.105,
         seed,
-        octaves,
+        warpOctaves,
       );
       warpedX = x + (warpX - 0.5) * warpAmount;
       warpedY = y + (warpY - 0.5) * warpAmount;
@@ -374,45 +392,106 @@ function drawGrouped(
   glintHeightRatio: number,
   hasGlint: boolean,
 ): void {
-  const { x: cellX, y: cellY, size: cellSize, count } = cells;
+  const { count } = cells;
 
-  groupBy(buffers, buffers.bodyKeys, count, BODY_KEYS, 0);
-  for (let key = 0; key < BODY_KEYS; key++) {
-    const total = buffers.counts[key];
-    if (total === 0) continue;
-    ctx.fillStyle = styleFor(key);
-    const start = buffers.offsets[key] - total;
-    for (let j = start; j < buffers.offsets[key]; j++) {
-      const i = buffers.order[j];
-      ctx.fillRect(cellX[i], cellY[i], cellSize[i], cellSize[i]);
-    }
-  }
+  clearCounts(buffers, buffers.bodyUsed, buffers.bodyUsedCount);
+  buffers.bodyUsedCount = groupBy(
+    buffers,
+    buffers.bodyKeys,
+    count,
+    BODY_KEYS,
+    0,
+    buffers.bodyUsed,
+  );
+  drawBuckets(
+    ctx,
+    cells,
+    buffers,
+    styleFor,
+    buffers.bodyUsed,
+    buffers.bodyUsedCount,
+    0,
+    glintHeightRatio,
+  );
 
+  // Glint counts are cleared even when this frame has no glints, or they would
+  // linger from the last frame that did and corrupt the next one.
+  clearCounts(buffers, buffers.glintUsed, buffers.glintUsedCount);
+  buffers.glintUsedCount = 0;
   if (!hasGlint) return;
 
-  groupBy(buffers, buffers.glintKeys, count, GLINT_KEYS, BODY_KEYS);
-  for (let key = BODY_KEYS; key < TOTAL_KEYS; key++) {
-    const total = buffers.counts[key];
-    if (total === 0) continue;
+  buffers.glintUsedCount = groupBy(
+    buffers,
+    buffers.glintKeys,
+    count,
+    GLINT_KEYS,
+    BODY_KEYS,
+    buffers.glintUsed,
+  );
+  drawBuckets(
+    ctx,
+    cells,
+    buffers,
+    styleFor,
+    buffers.glintUsed,
+    buffers.glintUsedCount,
+    BODY_KEYS,
+    glintHeightRatio,
+  );
+}
+
+/** Draws every bucket in `used`, cells sharing one `fillStyle`. */
+function drawBuckets(
+  ctx: CanvasRenderingContext2D,
+  cells: FieldCells,
+  buffers: FieldRenderBuffers,
+  styleFor: (key: number) => string,
+  used: Int32Array,
+  usedCount: number,
+  glintKeyBase: number,
+  glintHeightRatio: number,
+): void {
+  const { x: cellX, y: cellY, size: cellSize } = cells;
+  const { counts, offsets, order } = buffers;
+  const isGlint = glintKeyBase > 0;
+
+  for (let u = 0; u < usedCount; u++) {
+    const key = used[u];
+    const end = offsets[key];
+    const start = end - counts[key];
     ctx.fillStyle = styleFor(key);
-    const start = buffers.offsets[key] - total;
-    for (let j = start; j < buffers.offsets[key]; j++) {
-      const i = buffers.order[j];
+    for (let j = start; j < end; j++) {
+      const i = order[j];
       const size = cellSize[i];
       ctx.fillRect(
         cellX[i],
         cellY[i],
         size,
-        Math.max(1, size * glintHeightRatio),
+        isGlint ? Math.max(1, size * glintHeightRatio) : size,
       );
     }
   }
 }
 
+/** Zero only the buckets the previous frame touched. */
+function clearCounts(
+  buffers: FieldRenderBuffers,
+  used: Int32Array,
+  usedCount: number,
+): void {
+  const { counts } = buffers;
+  for (let u = 0; u < usedCount; u++) counts[used[u]] = 0;
+}
+
 /**
  * Counting sort of the first `count` entries of `keys` into `order`, bucketed
  * over `[keyOffset, keyOffset + buckets)`. On return `offsets` holds each
- * bucket's end (`end - counts[key]` is its start); `counts` keeps the sizes.
+ * bucket's end (`end - counts[key]` is its start); `counts` keeps the sizes,
+ * and `used[0..return value)` lists the buckets that are actually occupied.
+ *
+ * Counts must already be zero for this range — `clearCounts` handles that.
+ * Occupied keys are recorded on first touch, which is what lets the caller
+ * skip the 4,096-bucket scan a full palette would otherwise need.
  */
 function groupBy(
   buffers: FieldRenderBuffers,
@@ -420,25 +499,37 @@ function groupBy(
   count: number,
   buckets: number,
   keyOffset: number,
-): void {
+  used: Int32Array,
+): number {
   const { counts, offsets, order } = buffers;
-  counts.fill(0, keyOffset, keyOffset + buckets);
+  let usedCount = 0;
 
   for (let i = 0; i < count; i++) {
     const key = keys[i] - keyOffset;
-    if (key >= 0 && key < buckets) counts[key + keyOffset]++;
+    if (key < 0 || key >= buckets) continue;
+    const absolute = key + keyOffset;
+    if (counts[absolute]++ === 0) used[usedCount++] = absolute;
   }
 
+  // Sorted so buckets are painted in the same order a full scan would have
+  // produced. Cells never overlap on this path, so the order could not change
+  // the image — but keeping it identical means a paint is a paint.
+  const usedKeys = used.subarray(0, usedCount);
+  usedKeys.sort();
+
   let total = 0;
-  for (let k = 0; k < buckets; k++) {
-    offsets[k + keyOffset] = total;
-    total += counts[k + keyOffset];
+  for (let u = 0; u < usedCount; u++) {
+    const key = usedKeys[u];
+    offsets[key] = total;
+    total += counts[key];
   }
 
   for (let i = 0; i < count; i++) {
     const key = keys[i] - keyOffset;
     if (key >= 0 && key < buckets) order[offsets[key + keyOffset]++] = i;
   }
+
+  return usedCount;
 }
 
 /** Overlapping grids must keep generation order, so only runs are collapsed. */

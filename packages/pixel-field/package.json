@@ -43,6 +43,7 @@
     "typecheck": "tsc --noEmit",
     "test": "pnpm run build && node --test test/",
     "bench": "pnpm run build && node bench/frame-cost.mjs",
+    "bench:noise": "pnpm run build && node bench/fbm-cost.mjs",
     "prepublishOnly": "pnpm run typecheck && pnpm run test"
   },
   "peerDependencies": {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
 import { existsSync, readFileSync } from 'node:fs';
+import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { GOLDEN_CASES } from './golden-cases.mjs';
 import { fingerprint } from './golden.mjs';
@@ -37,6 +37,9 @@ test('golden.json has no stale cases', () => {
   const golden = JSON.parse(readFileSync(goldenPath, 'utf8'));
   const known = new Set(GOLDEN_CASES.map((c) => c.name));
   for (const name of Object.keys(golden)) {
-    assert.ok(known.has(name), `${name}: golden.json has a case the test never runs`);
+    assert.ok(
+      known.has(name),
+      `${name}: golden.json has a case the test never runs`,
+    );
   }
 });
