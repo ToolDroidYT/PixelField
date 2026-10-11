@@ -1,121 +1,81 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react'
+import PixelField from './components/PixelField'
+
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+
+const BUTTON =
+  'inline-flex min-h-[46px] cursor-pointer items-center justify-center rounded-[10px] border px-[17px] text-sm font-[550]'
+const BUTTON_SECONDARY = `${BUTTON} border-white/[0.17] bg-white/[0.055] text-[#eee9e4]`
+const BUTTON_PRIMARY = `${BUTTON} border-[#e8e2dc] bg-[#e8e2dc] text-[#181513]`
+
+const VIGNETTE =
+  'pointer-events-none absolute inset-0 z-[-1] bg-[linear-gradient(0deg,rgba(10,9,8,0.18),rgba(10,9,8,0.04)_48%,rgba(10,9,8,0.12))] max-[560px]:bg-[linear-gradient(180deg,rgba(10,9,8,0.1),rgba(10,9,8,0.16)_45%,rgba(10,9,8,0.08))]'
+
+const MARK_BAR =
+  'block h-[9px] w-[26px] rounded-[2px] bg-[#f5f2ef] max-[560px]:w-5'
 
 function App() {
-  const [count, setCount] = useState(0)
+  // Mirrors the prototype: reduced motion decides the initial state and takes
+  // over whenever the OS preference changes; between those events a manual
+  // toggle wins.
+  const [running, setRunning] = useState(
+    () => !window.matchMedia(REDUCED_MOTION_QUERY).matches,
+  )
+  const [seed, setSeed] = useState(1)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY)
+    const onChange = (event: MediaQueryListEvent) => setRunning(!event.matches)
+    mediaQuery.addEventListener('change', onChange)
+    return () => mediaQuery.removeEventListener('change', onChange)
+  }, [])
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+    <main className="relative isolate flex min-h-svh flex-col items-start justify-center overflow-hidden p-[clamp(28px,7vw,88px)] max-[560px]:justify-start max-[560px]:pt-[34svh]">
+      <PixelField running={running} seed={seed} />
+      {/* Vignette keeps the center text readable while pixels remain visible at the edges. */}
+      <div aria-hidden="true" className={VIGNETTE} />
+
+      <header className="absolute top-[clamp(22px,4vw,42px)] right-[clamp(28px,7vw,88px)] left-[clamp(28px,7vw,88px)] flex items-center justify-between gap-4 max-[560px]:items-start">
+        <div
+          className="flex -skew-y-[15deg] items-center gap-[5px]"
+          aria-label="Brand mark"
         >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+          <span className={MARK_BAR} />
+          <span className={`${MARK_BAR} translate-y-[6px]`} />
+          <span className={`${MARK_BAR} translate-y-[12px]`} />
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+      </header>
+
+      <section className="w-[min(760px,100%)] pt-[42px] max-[560px]:pt-0">
+        <h1 className="m-0 max-w-[820px] text-[clamp(48px,8.5vw,104px)] leading-[0.96] font-medium tracking-[-0.075em]">
+          Make pixels{' '}
+          <em className="mt-2 block font-serif text-[0.89em] font-normal tracking-[-0.06em] text-[#bcb4ac]">
+            move.
+          </em>
+        </h1>
+        <p className="mt-7 max-w-[510px] text-[clamp(17px,2vw,22px)] leading-[1.65] text-muted">
+          A living field of smooth, drifting noise. Each pixel carries its own
+          intensity, so the pattern feels layered instead of flat.
+        </p>
+        <div className="mt-[34px] flex flex-wrap gap-3">
+          <button
+            type="button"
+            className={BUTTON_PRIMARY}
+            onClick={() => setRunning((value) => !value)}
+          >
+            {running ? 'Pause animation' : 'Resume animation'}
+          </button>
+          <button
+            type="button"
+            className={BUTTON_SECONDARY}
+            onClick={() => setSeed((value) => value + 1)}
+          >
+            Change pattern
+          </button>
         </div>
       </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </main>
   )
 }
 
