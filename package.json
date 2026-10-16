@@ -15,7 +15,8 @@
     "test": "pnpm --filter @tooldroid/pixel-field test",
     "bench": "pnpm --filter @tooldroid/pixel-field bench",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "release": "npm run prepublishOnly && npm publish --access=public"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
