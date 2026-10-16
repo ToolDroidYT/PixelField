@@ -1,6 +1,5 @@
 {
-  "name": "pixelgrid-noise",
-  "private": true,
+  "name": "pixelfield",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
