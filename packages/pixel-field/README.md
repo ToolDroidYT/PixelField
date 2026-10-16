@@ -11,6 +11,8 @@ The effect is generated at runtime using procedural noise — no images, shaders
 - **Easy to customize** with colors, grid size, animation speed, and more
 - **Canvas-based rendering** with cell and frame-rate limits to help control workload
 - **Reduced-motion support** that respects the operating system preference by default
+- **Server Component friendly** — the entry ships a `'use client'` directive, so
+  Next.js App Router Server Components can import it directly
 - **TypeScript support** with exported prop and configuration types
 
 ## Requirements
@@ -41,10 +43,10 @@ import { PixelField } from '@tooldroid/pixel-field';
 
 export function Hero() {
   return (
-    <section className="hero">
+    <section className='hero'>
       <PixelField running seed={1} />
 
-      <div className="hero__content">
+      <div className='hero__content'>
         <h1>Your next idea, in motion.</h1>
         <p>A subtle animated pixel field for your interface.</p>
       </div>
@@ -75,23 +77,20 @@ The component renders a canvas positioned behind your content. Make the section 
 
 ## Component props
 
-| Prop | Type | Description |
-| --- | --- | --- |
-| `running` | `boolean` | Enables or pauses animation. Required. |
-| `seed` | `number` | Determines the generated pattern. Change it to generate a different field. Required. |
-| `config` | `PixelFieldConfig` | Optional animation, grid, color, and rendering settings. Unspecified values use defaults. |
-| `className` | `string` | Additional classes for the canvas. Merged with the built-in classes. |
-| `ref` | `Ref<HTMLCanvasElement>` | Ref to the underlying canvas element. |
+| Prop        | Type                     | Description                                                                               |
+| ----------- | ------------------------ | ----------------------------------------------------------------------------------------- |
+| `running`   | `boolean`                | Enables or pauses animation. Required.                                                    |
+| `seed`      | `number`                 | Determines the generated pattern. Change it to generate a different field. Required.      |
+| `config`    | `PixelFieldConfig`       | Optional animation, grid, color, and rendering settings. Unspecified values use defaults. |
+| `className` | `string`                 | Additional classes for the canvas. Merged with the built-in classes.                      |
+| `ref`       | `Ref<HTMLCanvasElement>` | Ref to the underlying canvas element.                                                     |
 
 ## Customize the look
 
 Pass a `config` object to adjust the field. You only need to specify the options you want to change.
 
 ```tsx
-import {
-  PixelField,
-  type PixelFieldConfig,
-} from '@tooldroid/pixel-field';
+import { PixelField, type PixelFieldConfig } from '@tooldroid/pixel-field';
 
 const fieldConfig: PixelFieldConfig = {
   spacing: 22,
@@ -109,18 +108,18 @@ export function Background() {
 
 ### Common configuration options
 
-| Option | What it changes |
-| --- | --- |
-| `spacing` | Distance between pixel-cell origins. Larger values produce a more open grid. |
-| `pixelSize` | Nominal square size. Larger values create chunkier pixels. |
-| `sizeJitter` | Variation in cell size; set to `0` for uniform squares. |
-| `speed` | Overall animation speed. Use `0` to freeze the animation. |
-| `colorBase` | Base RGB color as `[red, green, blue]`, with each channel from `0` to `255`. |
-| `colorRange` | RGB color variation as `[red, green, blue]`. |
-| `glint` | Enables or disables subtle highlights on some bright cells. |
-| `maxFps` | Maximum canvas repaint rate. The default is `30`. |
-| `maxCells` | Maximum number of cells to render. The default is `20_000`. Set to `0` to remove the cap. |
-| `respectReducedMotion` | Automatically pause animation when the OS requests reduced motion. Defaults to `true`. |
+| Option                 | What it changes                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `spacing`              | Distance between pixel-cell origins. Larger values produce a more open grid.              |
+| `pixelSize`            | Nominal square size. Larger values create chunkier pixels.                                |
+| `sizeJitter`           | Variation in cell size; set to `0` for uniform squares.                                   |
+| `speed`                | Overall animation speed. Use `0` to freeze the animation.                                 |
+| `colorBase`            | Base RGB color as `[red, green, blue]`, with each channel from `0` to `255`.              |
+| `colorRange`           | RGB color variation as `[red, green, blue]`.                                              |
+| `glint`                | Enables or disables subtle highlights on some bright cells.                               |
+| `maxFps`               | Maximum canvas repaint rate. The default is `30`.                                         |
+| `maxCells`             | Maximum number of cells to render. The default is `20_000`. Set to `0` to remove the cap. |
+| `respectReducedMotion` | Automatically pause animation when the OS requests reduced motion. Defaults to `true`.    |
 
 See the exported `PixelFieldConfig` type in your editor for all available options, including noise, contour, brightness, alpha, and device-pixel-ratio controls. Values that need bounds are normalized by the package.
 
@@ -135,11 +134,7 @@ h-dvh w-full pointer-events-none absolute inset-0 z-[-1] opacity-[0.95]
 Add your own classes to override defaults:
 
 ```tsx
-<PixelField
-  running
-  seed={1}
-  className="opacity-40 mix-blend-screen"
-/>
+<PixelField running seed={1} className='opacity-40 mix-blend-screen' />
 ```
 
 The classes must exist in your generated CSS for Tailwind to apply them.
@@ -147,8 +142,8 @@ The classes must exist in your generated CSS for Tailwind to apply them.
 **Tailwind CSS v4** — explicitly include the package in source detection if it is not scanned automatically. Adjust the relative path for your project's CSS file:
 
 ```css
-@import "tailwindcss";
-@source "../node_modules/@tooldroid/pixel-field";
+@import 'tailwindcss';
+@source '../node_modules/@tooldroid/pixel-field';
 ```
 
 **Tailwind CSS v3** — add the package's built files to your `content` configuration:
@@ -163,11 +158,7 @@ content: [
 **Not using Tailwind?** Utility class names will not produce styles unless you provide matching CSS. You can still use your own classes:
 
 ```tsx
-<PixelField
-  running
-  seed={1}
-  className="pixel-field-background"
-/>
+<PixelField running seed={1} className='pixel-field-background' />
 ```
 
 For example:

@@ -49,7 +49,9 @@ export function Hero() {
 The component renders only a `<canvas>`, sized to its nearest positioned
 ancestor — place it inside a `position: relative` (or any positioned) container
 and layer your content over it (`isolate` keeps the field's negative
-`z-index` from escaping the section).
+`z-index` from escaping the section). The published entry is marked
+`'use client'`, so Next.js App Router Server Components can import `PixelField`
+without their own client wrapper.
 
 ### Props
 
@@ -210,6 +212,7 @@ dist/                   → demo production build output (gitignored)
 | `pnpm format:check`        | Check formatting without writing.                    |
 | `pnpm run publish`         | Publish the library to npm (builds first).           |
 | `pnpm run publish:dry-run` | Print what would be published, without uploading.    |
+| `pnpm run release`         | Typecheck, lint and test, then publish the library.  |
 
 Library-scoped equivalents (`pnpm --filter @tooldroid/pixel-field …`) are
 listed in [`packages/pixel-field/README.md`](./packages/pixel-field/README.md).
@@ -241,8 +244,11 @@ Notes:
 - `pnpm version` and `pnpm publish` both refuse to run on a dirty checkout.
   Commit first; add `--no-git-tag-version` (version) or `--no-git-checks`
   (publish) to skip the git bookkeeping.
-- `files` in `packages/pixel-field/package.json` already limits the tarball to
-  `dist` and the README, and `dist` is gitignored.
+- `files` in `packages/pixel-field/package.json` limits the tarball to `dist`,
+  the README and the LICENSE (`package.json` is always included), and `dist`
+  is gitignored.
+- The repository root is `private: true`, so it can never be published by
+  accident — `@tooldroid/pixel-field` is the only publishable package.
 - The package name is scoped, so `access: public` is set in `publishConfig`
   (and passed via `--access public`) — scoped packages default to restricted
   and would otherwise fail without a paid npm org.

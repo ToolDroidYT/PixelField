@@ -75,15 +75,15 @@
        * Serve the package root over HTTP (ES modules do not load from file://):
        *   python3 -m http.server 4173 --directory packages/pixel-field
        *
-       * Loads `dist/bench.js` (the React-free entry) rather than `dist/index.js`,
-       * whose bare `react` import no plain page can resolve.
+       * Loads `bench/dist/bench.js` (the React-free entry) rather than
+       * `dist/index.js`, whose bare `react` import no plain page can resolve.
        */
       import {
         buildFieldCells,
         createFieldRenderBuffers,
         paintField,
         resolvePixelFieldConfig,
-      } from '../dist/bench.js';
+      } from './dist/bench.js';
 
       const params = new URLSearchParams(location.search);
       const number = (key) => {

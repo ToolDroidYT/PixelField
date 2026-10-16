@@ -1,6 +1,7 @@
 {
   "name": "pixelfield",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -8,16 +9,14 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "build:packages": "pnpm --filter @tooldroid/pixel-field build",
-    "publish": "pnpm --filter @tooldroid/pixel-field publish --access public",
-    "publish:dry-run": "pnpm --filter @tooldroid/pixel-field publish --access public --dry-run",
     "typecheck": "tsc -b",
     "test": "pnpm --filter @tooldroid/pixel-field test",
     "bench": "pnpm --filter @tooldroid/pixel-field bench",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepublishOnly": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "publish:dry": "npm run build && npm pack --dry-run",
-    "release": "npm run prepublishOnly && npm publish --access=public"
+    "publish": "pnpm --filter @tooldroid/pixel-field publish --access public",
+    "publish:dry-run": "pnpm --filter @tooldroid/pixel-field publish --access public --dry-run",
+    "release": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run publish"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

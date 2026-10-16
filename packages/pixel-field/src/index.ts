@@ -1,3 +1,5 @@
+'use client';
+
 export { PixelField, type PixelFieldProps } from './components/PixelField';
 export { usePixelField } from './hooks/usePixelField';
 
