@@ -28,8 +28,20 @@ const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 /** Quiet period a burst of resize notifications must reach before syncing. */
 const SYNC_SETTLE_MS = 300;
-/** Hard cap on how long a gesture can keep deferring the sync. */
-const SYNC_MAX_WAIT_MS = 750;
+/**
+ * Hard cap on how long a gesture can keep deferring the sync. This is a
+ * safety net for a container that resizes forever (a looping CSS animation),
+ * not the normal path: every sync reallocates the whole canvas backing store,
+ * rebuilds the grid, and repaints, so it has to stay rare or a window drag
+ * turns into sustained main-thread work and a wall of bitmap allocations.
+ *
+ * At 750 ms a ten-second drag ran that full sync ~13 times — ~1.7 GB of
+ * backing-store churn on a 4K @DPR 2 display and ~17% of wall-clock time
+ * inside `paintField`, all while the animation is supposed to be held. At
+ * four seconds a normal drag (which settles well inside it) costs exactly one
+ * trailing sync instead, and a gesture that never settles still refreshes.
+ */
+const SYNC_MAX_WAIT_MS = 4000;
 
 /** Base clock step per millisecond; `speed` scales it (`1` = the original rate). */
 const TIME_STEP = 0.00136;
@@ -138,6 +150,13 @@ export function usePixelField(
     view.noiseScale = noiseScaleRef.current;
     view.time = timeRef.current;
     view.seed = seedRef.current;
+    // Claim the frame budget before drawing, not after: the loop measures the
+    // `maxFps` interval from here, and measuring from the end of a paint would
+    // make expensive frames throttle themselves down. A sync repaint counts
+    // too — without this the loop finds a stale clock right after a resize
+    // sync and paints the identical frame again on its next tick, doubling
+    // what every mid-burst sync costs.
+    lastPaintRef.current = performance.now();
     paintField(ctx, cells, buffers, view, configRef.current);
   }, [getCtx]);
 
